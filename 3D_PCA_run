@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+#set -x
+
+# /usr/bin/env Rscript --no-save
+
+function print_usage(){
+ printf "
+3D_PCA_run [OPTIONS] Directory
+	-d | --dir	RNAseq directory
+	-f | --factors	Factors to create 3D PCA (e.g. factor1,factor2,factor3)
+	-h | --help	Display help
+	
+"
+}
+
+for arg in "$@"
+do
+ case $arg in
+  -d | --dir)
+  shift
+  wd=$1
+  shift
+  ;;
+  -f | --factors)
+  IFS="," factors=($(echo $1))
+  shift
+  ;;
+  -h | --help)
+  print_usage
+  exit 1
+  ;;
+  *)
+ esac
+done
+# xvfb-run 3D_PCA_run --factor factor --wd working_dir (includes PCA_data.RData)
+
+if ! command -v xvfb-run &> /dev/null
+then
+ echo "xvfb not installed!"
+ echo "Install using:"
+ echo "sudo apt install xvfb"
+ exit 1
+fi
+
+R_script=$(mktemp)
+echo -e '#!/usr/bin/env Rscript
+packages = c("RColorBrewer","rgl","R.utils")
+invisible(
+  suppressMessages(
+    sapply(packages,FUN = function(x) {
+       if(!x %in% rownames(installed.packages())){
+         cat("Installing package: ",x,"\n",sep = "")
+         BiocManager::install(x,update = FALSE,ask = FALSE)
+       }
+      cat("#####   Loading package: ",x,"   #####\n",sep = "")
+      library(x,character.only = TRUE)
+    })))
+
+options(stringsAsFactors = FALSE)
+args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
+setwd(args[["wd"]])
+cat("Working directory: ",getwd(),"\n")
+load("PCA_data.RData")
+factor = args[["factor")]]
+cat("Creating 3D PCA for factor ",factor,"\n",sep = "")
+PCA_3D(PC_factor = factor)' > $R_script
+chmod +x $R_script
+for factor in ${factors[@]}
+do
+ xvfb-run $R_script "--factor "$factor "--wd "$wd
+done
+rm --force $R_script
