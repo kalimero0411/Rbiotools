@@ -6,10 +6,10 @@ packages=c("rChoiceDialogs","BiocParallel","parallel","TxDb.Hsapiens.UCSC.hg19.k
 invisible(
   suppressMessages(
     sapply(packages,FUN = function(x) {
-      if(!x %in% rownames(installed.packages())){
-        cat("Installing package: ",x,"\n", sep = "")
-        BiocManager::install(x,update = FALSE,ask = FALSE)
-      }
+      # if(!x %in% rownames(installed.packages())){
+      #   cat("Installing package: ",x,"\n", sep = "")
+      #   BiocManager::install(x,update = FALSE,ask = FALSE)
+      # }
       cat("#####   Loading package: ",x,"   #####\n", sep = "")
       library(x,character.only = TRUE)
     })))

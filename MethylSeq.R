@@ -1,6 +1,7 @@
 #######     DNA methylation analysis      ##########
 
-packages=c("methylKit","Rsamtools","genomation","rChoiceDialogs","goseq","BiocParallel","parallel","tools","factoextra","R.utils","ggplot2")
+packages=c("methylKit","Rsamtools","genomation","rChoiceDialogs","goseq","BiocParallel","parallel","tools","factoextra",
+           "R.utils","ggplot2")
 invisible(
   suppressMessages(
     sapply(packages,FUN = function(x) {
@@ -470,6 +471,7 @@ if("Import dataset" %in% section){
       SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = lapply(X = unique(as.character(SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["chr"]])),FUN = function(x){
         Annotation_df[[Annotation_idx]][[regions_idx]][[x]]$Gene[Annotation_df[[Annotation_idx]][[regions_idx]][[x]]$Start %in% SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["start"]]]
       })
+      names(SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]]) = unique(as.character(SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["chr"]]))
       SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][!isEmpty(SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]])]
       write.table(x = unique(unlist(SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]],use.names = FALSE)),file = paste0("./Annotation/SMP_",context,"_",factor_name_idx,"_",Annotation_idx,"_",regions_idx,"_",hh_select,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
     }
@@ -478,6 +480,7 @@ if("Import dataset" %in% section){
       DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = lapply(X = unique(as.character(DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["chr"]])),FUN = function(x){
         Annotation_df[[Annotation_idx]][[regions_idx]][[x]]$Gene[Annotation_df[[Annotation_idx]][[regions_idx]][[x]]$Start %in% DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["start"]]]
       })
+      names(DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]]) = unique(as.character(DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["chr"]]))
       DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][!isEmpty(DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]])]
       write.table(x = unique(unlist(DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]],use.names = FALSE)),file = paste0("./Annotation/DMR_",context,"_",factor_name_idx,"_",Annotation_idx,"_",regions_idx,"_",hh_select,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
     }

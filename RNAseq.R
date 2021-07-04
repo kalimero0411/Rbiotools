@@ -6,16 +6,13 @@ packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel"
 if(interactive()){
   packages = c(packages,"rChoiceDialogs","wordcloud","tm","topGO","Rgraphviz")
 }
-if(FALSE){
-  install.packages(
-    pkgs = "bcbioRNASeq",
-    repos = c(
-      "https://r.acidgenomics.com",
-      BiocManager::repositories()
-    )
-  )
-  library("bcbioRNASeq")
-}
+# if(!"bcbioRNASeq" %in% rownames(installed.packages())){
+#   install.packages(
+#     pkgs = "bcbioRNASeq",
+#     repos = c("https://r.acidgenomics.com",getOption("repos"))
+#   )
+# }
+# packages = c(packages,"bcbioRNASeq")
 
 invisible(
   suppressMessages(
