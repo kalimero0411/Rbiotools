@@ -806,7 +806,6 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   }
 
 #####    Start run    #####
-#####   Run DESEq2   #####
   if("DESeq2" %in% section | "LRT" %in% section | "LRT-DESeq" %in% section){
   cat("#####    Importing data    ######\n", sep = "")
     if(exists("input_path")){

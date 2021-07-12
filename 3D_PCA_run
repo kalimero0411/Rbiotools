@@ -3,11 +3,13 @@
 
 # /usr/bin/env Rscript --no-save
 
+rscript=$(dirname $(readlink -f $0))"/PCA_3D.R"
 function print_usage(){
  printf "
 3D_PCA_run [OPTIONS] Directory
 	-d | --dir	RNAseq directory
 	-f | --factors	Factors to create 3D PCA (e.g. factor1,factor2,factor3)
+	-r | --rscript	Path to PCA_3D.R (Defaults bash script directory)
 	-h | --help	Display help
 	
 "
@@ -23,6 +25,11 @@ do
   ;;
   -f | --factors)
   IFS="," factors=($(echo $1))
+  shift
+  ;;
+  -r | --rscript)
+  shift
+  rscript=$1
   shift
   ;;
   -h | --help)
@@ -42,31 +49,7 @@ then
  exit 1
 fi
 
-R_script=$(mktemp)
-echo -e '#!/usr/bin/env Rscript
-packages = c("RColorBrewer","rgl","R.utils")
-invisible(
-  suppressMessages(
-    sapply(packages,FUN = function(x) {
-       if(!x %in% rownames(installed.packages())){
-         cat("Installing package: ",x,"\n",sep = "")
-         BiocManager::install(x,update = FALSE,ask = FALSE)
-       }
-      cat("#####   Loading package: ",x,"   #####\n",sep = "")
-      library(x,character.only = TRUE)
-    })))
-
-options(stringsAsFactors = FALSE)
-args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-setwd(args[["wd"]])
-cat("Working directory: ",getwd(),"\n")
-load("PCA_data.RData")
-factor = args[["factor")]]
-cat("Creating 3D PCA for factor ",factor,"\n",sep = "")
-PCA_3D(PC_factor = factor)' > $R_script
-chmod +x $R_script
 for factor in ${factors[@]}
 do
- xvfb-run $R_script "--factor "$factor "--wd "$wd
+ xvfb-run $rscript "--factor "$factor "--wd "$wd
 done
-rm --force $R_script
