@@ -668,6 +668,13 @@ if("LRT-DESeq" %in% section){
     for(i in colnames(experimental_design)){
       experimental_design[[i]] = as.factor(experimental_design[[i]])
     }
+    if(Mapper == "RSEM"){
+      genes_isoforms = if(grepl(pattern = "[.]genes[.]results",file_names[1])){
+        "genes"
+      }else{
+        "isoforms"
+      }
+    }
   }else{
     
     # RSEM input
