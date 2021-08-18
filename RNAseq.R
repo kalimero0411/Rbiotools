@@ -775,16 +775,19 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   GO_terms = c(as.list(GO.db::GOTERM),as.list(GO.db::GOSYNONYM))
   delim_fun = function(GO_file){
     GO_temp = read.table(GO_file,sep = "\t")
-    if(any(lengths(gregexpr(pattern = "GO",GO_temp$V2)) > 1)){
-      GO_first = GO_temp$V2[lengths(gregexpr(pattern = "GO",GO_temp$V2)) > 1][1]
+    if(any(lengths(gregexpr(pattern = "GO",GO_temp[,2])) > 1)){
+      GO_first = GO_temp[lengths(gregexpr(pattern = "GO",GO_temp[,2])) > 1,2][1]
       return(readMappings(GO_file,IDsep = substr(x = GO_first,start = 11,stop = unlist(gregexpr(pattern = "GO:[0-9]{7}",GO_first))[2]-1)))
     }else{
       geneGO_temp = readMappings(GO_file)
-      return(split(unlist(geneGO_temp, use.names = FALSE), rep(names(geneGO_temp), lengths(geneGO_temp))))
+      return(split(unlist(geneGO_temp, use.names = FALSE), names(geneGO_temp)))
     }
   }
   geneGO = delim_fun(GO_file = rchoose.files(caption = "Choose GO annotation file:"))
   GO_table = data.frame(Gene = rep(names(lengths(geneGO)),lengths(geneGO)),GO_ID = unlist(geneGO,use.names = FALSE))
+  # GO_table = data.frame(Gene = unique(GO_table$V1), GO_ID = unlist(bplapply(unique(GO_table$V1),function(x){
+  #   return(paste(GO_table[GO_table$V1 %in% x,"V2"],collapse = ";"))
+  # })))
   cat("##### Applying GO terms #####\n")
   GO_table_temp = as.data.frame(matrix(unlist(bplapply(unique(GO_table[["GO_ID"]]),function(x){
     if(x %in% names(GO_terms)){

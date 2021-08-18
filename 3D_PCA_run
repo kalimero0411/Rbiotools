@@ -7,8 +7,9 @@ rscript=$(dirname $(readlink -f $0))"/PCA_3D.R"
 function print_usage(){
  printf "
 3D_PCA_run [OPTIONS] Directory
-	-d | --dir	RNAseq directory
-	-f | --factors	Factors to create 3D PCA (e.g. factor1,factor2,factor3)
+	-d | --dir	DESeq2 output directory
+	-f | --factors	Factors for 3D PCA (e.g. factor1,factor2,factor3; Default = All factors)
+	-l | --list	List all available factors for a specific analysis
 	-r | --rscript	Path to PCA_3D.R (Defaults bash script directory)
 	-h | --help	Display help
 	
@@ -24,7 +25,12 @@ do
   shift
   ;;
   -f | --factors)
-  IFS="," factors=($(echo $1))
+  shift
+  factors=$1
+  shift
+  ;;
+  -l | --list)
+  list=1
   shift
   ;;
   -r | --rscript)
@@ -49,7 +55,15 @@ then
  exit 1
 fi
 
-for factor in ${factors[@]}
-do
- xvfb-run $rscript "--factor "$factor "--wd "$wd
-done
+if [ ! -z ${list+x} ]
+then
+ Rscript $rscript --wd $wd --list
+ exit 0
+fi
+
+if [ ${#factors[@]} -ne 0 ]
+then
+ xvfb-run $rscript --factors $factor --wd $wd
+else
+ xvfb-run $rscript --wd $wd
+fi
