@@ -87,6 +87,7 @@ for(factor in factors){
   PCA_3D(PC_factor = factor)
 }
 }' > $rscript
+chmod +x $rscript
 
 if [ ! -z ${list+x} ]
 then
