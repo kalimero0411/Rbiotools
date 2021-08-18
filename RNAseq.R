@@ -285,7 +285,7 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
     while(length(rgl.dev.list()) != 0){rgl.close()}
     cat("\r",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
     }
-  try(system(paste0("ffmpeg -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",PC_factor,".mp4")))
+  try(system(paste0("ffmpeg -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",PC_factor,".mp4")))
   unlink("animation_merge",recursive = TRUE)
   }
 
