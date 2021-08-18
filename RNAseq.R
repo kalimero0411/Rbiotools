@@ -1077,7 +1077,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   if(length(factors) > 1){
   for(i in factors[-length(factors)]){
   for(j in factors[(which(factors %in% i)+1):length(factors)]){
-    PCA_data[[paste0("PCA_PC12_",rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]] = plotPCA_PC123(object = data_set_transform,intgroup=c(i,j),returnData = TRUE)
+    PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]] = plotPCA_PC123(object = data_set_transform,intgroup=c(i,j),returnData = TRUE)
     png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j,".png"),width = 1920,height = 1080,units = "px")
     plot_temp = ggplot(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]],
                        aes(PC1, PC2, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["name"]])) +
@@ -1098,7 +1098,6 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
     print(plot_temp)
     while (!is.null(dev.list())){dev.off()}
     
-        PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]] = plotPCA_PC123(object = data_set_transform,intgroup=c(i,j),returnData = TRUE)
     png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j,"_PC2.png"),width = 1920,height = 1080,units = "px")
     plot_temp = ggplot(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]],
                    aes(PC2, PC3, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["name"]])) +
@@ -1111,7 +1110,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
             scale_color_discrete(name = i) +
             geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
             guides(color=guide_legend(override.aes=list(fill=NA)))
-    if(max(table(PCA_data[[paste0("PCA_PC23_",rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["group"]])) > 3){
+    if(max(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["group"]])) > 3){
       plot_temp = plot_temp +      
       stat_ellipse(geom = "polygon", alpha = 0.5, aes(fill = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]) > 3)) +
       labs(fill = "Ellipse")
