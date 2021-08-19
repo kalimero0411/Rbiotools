@@ -265,17 +265,20 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
   for(l in 1:length(unique(experimental_design[,PC_factor]))){
     colors_3d[experimental_design[,PC_factor] %in% unique(experimental_design[,PC_factor])[l]] = brewer.pal(n = 9,name = "Set1")[l]
   }
+  
+  # Single factor 3D PCAs
+  if("Single_factor" %in% names(PC_data)){
   for(degree in 1:360) {
     open3d()
     par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
-    plot3d(x = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",PC_factor)]][["PC1"]],
-           y = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",PC_factor)]][["PC2"]],
-           z = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",PC_factor)]][["PC3"]],
+    plot3d(x = PCA_data[["Single_factor"]][[PC_factor]][["PC1"]],
+           y = PCA_data[["Single_factor"]][[PC_factor]][["PC2"]],
+           z = PCA_data[["Single_factor"]][[PC_factor]][["PC3"]],
            size = 10,
            col = colors_3d,
-           xlab = paste0("PC1: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",PC_factor)]], "percentVar"))[1],"% variance"),
-           ylab = paste0("PC2: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",PC_factor)]], "percentVar"))[2],"% variance"),
-           zlab = paste0("PC3: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",PC_factor)]], "percentVar"))[3],"% variance"),
+           xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Single_factor"]][[PC_factor]], "percentVar"))[1],"% variance"),
+           ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[PC_factor]], "percentVar"))[2],"% variance"),
+           zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[PC_factor]], "percentVar"))[3],"% variance"),
            type = "s",
            radius = 2) +
       legend3d("topright", legend = unique(experimental_design[[PC_factor]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(experimental_design[,PC_factor]))], pch = 16, cex=1, inset=c(0.02))
@@ -283,12 +286,71 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
       rgl.snapshot(filename=paste("animation_merge/frame-",
                                   sprintf("%03d", degree), ".png", sep=""))
     while(length(rgl.dev.list()) != 0){rgl.close()}
-    cat("\r",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
-    }
+    cat("\rRunning single factor | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+  }
+  cat("\nRunning ffmpeg...\n")
   try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",PC_factor,".mp4")))
   unlink("animation_merge",recursive = TRUE)
   }
-
+  
+  # Multiple factor 3D PCAs
+  if("Multiple_factor" %in% names(PC_data)){
+    for(degree in 1:360) {
+      open3d()
+      par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
+      plot3d(x = PCA_data[["Multiple_factor"]][[PC_factor]][["PC1"]],
+             y = PCA_data[["Multiple_factor"]][[PC_factor]][["PC2"]],
+             z = PCA_data[["Multiple_factor"]][[PC_factor]][["PC3"]],
+             size = 10,
+             col = colors_3d,
+             xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PC_factor]], "percentVar"))[1],"% variance"),
+             ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PC_factor]], "percentVar"))[2],"% variance"),
+             zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PC_factor]], "percentVar"))[3],"% variance"),
+             type = "s",
+             radius = 2) +
+        legend3d("topright", legend = unique(experimental_design[[PC_factor]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(experimental_design[,PC_factor]))], pch = 16, cex=1, inset=c(0.02))
+      view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
+      rgl.snapshot(filename=paste("animation_merge/frame-",
+                                  sprintf("%03d", degree), ".png", sep=""))
+      while(length(rgl.dev.list()) != 0){rgl.close()}
+      cat("\rRunning multiple factor | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+    }
+    cat("\nRunning ffmpeg...\n")
+    try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",PC_factor,".mp4")))
+    unlink("animation_merge",recursive = TRUE)
+  }
+  
+  # DEGs 3D PCAs
+  if("DEGs" %in% names(PC_data)){
+  for(PCA_DEG in names(PCA_data[["DEGs"]])){
+    if(attr(PCA_data[["DEGs"]][[PCA_DEG]], which = "factor") == PC_factor){
+    for(degree in 1:360) {
+      open3d()
+      par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
+      plot3d(x = PCA_data[["DEGs"]][[PCA_DEG]][["PC1"]],
+             y = PCA_data[["DEGs"]][[PCA_DEG]][["PC2"]],
+             z = PCA_data[["DEGs"]][[PCA_DEG]][["PC3"]],
+             size = 10,
+             col = colors_3d,
+             xlab = paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[PCA_DEG]], "percentVar"))[1],"% variance"),
+             ylab = paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[PCA_DEG]], "percentVar"))[2],"% variance"),
+             zlab = paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[PCA_DEG]], "percentVar"))[3],"% variance"),
+             type = "s",
+             radius = 2) +
+        legend3d("topright", legend = unique(experimental_design[[PC_factor]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(experimental_design[,PC_factor]))], pch = 16, cex=1, inset=c(0.02))
+      view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
+      rgl.snapshot(filename=paste("animation_merge/frame-",
+                                  sprintf("%03d", degree), ".png", sep=""))
+      while(length(rgl.dev.list()) != 0){rgl.close()}
+      cat("\rRunning DEGs | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+    }
+    cat("\nRunning ffmpeg...\n")
+    try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",PC_factor,".mp4")))
+    unlink("animation_merge",recursive = TRUE)
+    }
+  }
+  }
+}
 # Kmeans pheatmap function for seed setting
   pheatmap_seed = function(mat,
                            color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
@@ -1032,41 +1094,41 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   PCA_data = list()
   cat("#####    Creating PCA and factor heatmap plots    ######\n")
   for(i in factors){
-      PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]] = plotPCA_PC123(object = data_set_transform,intgroup=i,returnData = TRUE)
+      PCA_data[["Single_factor"]][[i]] = plotPCA_PC123(object = data_set_transform,intgroup=i,returnData = TRUE)
       png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,".png"),width = 1920,height = 1080,units = "px")
-      plot_temp = ggplot(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]],
-                     aes(PC1, PC2, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["name"]])) +
+      plot_temp = ggplot(PCA_data[["Single_factor"]][[i]],
+                     aes(PC1, PC2, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["name"]])) +
             geom_point(size=4) +
-            xlab(paste0("PC1: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]], "percentVar"))[1],"% variance")) +
-            ylab(paste0("PC2: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]], "percentVar"))[2],"% variance")) +
+            xlab(paste0("PC1: ",round(100 * attr(PCA_data[["Single_factor"]][[i]], "percentVar"))[1],"% variance")) +
+            ylab(paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[i]], "percentVar"))[2],"% variance")) +
             theme(text = element_text(size = 20)) +
             coord_fixed() +
             scale_color_discrete(name = i) +
             geom_line(size = 0) +
             geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
             guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]])) > 3){
+      if(max(table(PCA_data[["Single_factor"]][[i]][["group"]])) > 3){
         plot_temp = plot_temp +
-        stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]) > 3)) +
+        stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["Single_factor"]][[i]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Single_factor"]][[i]][["group"]]) > 3)) +
         labs(fill = "Ellipse")
       }
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
       
       png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_PC2.png"),width = 1920,height = 1080,units = "px")
-      plot_temp = ggplot(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]],
-                     aes(PC2, PC3, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["name"]])) +
+      plot_temp = ggplot(PCA_data[["Single_factor"]][[i]],
+                     aes(PC2, PC3, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["name"]])) +
               geom_point(size=4) +
-              xlab(paste0("PC2: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]], "percentVar"))[2],"% variance")) +
-              ylab(paste0("PC3: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]], "percentVar"))[3],"% variance")) +
+              xlab(paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[i]], "percentVar"))[2],"% variance")) +
+              ylab(paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[i]], "percentVar"))[3],"% variance")) +
               theme(text = element_text(size = 20)) +
               coord_fixed() +
               scale_color_discrete(name = i) +
               geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
               guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]])) > 3){
+      if(max(table(PCA_data[["Single_factor"]][[i]][["group"]])) > 3){
         plot_temp = plot_temp +
-              stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]) > 3)) +
+              stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["Single_factor"]][[i]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Single_factor"]][[i]][["group"]]) > 3)) +
               labs(fill = "Ellipse")
       }
       print(plot_temp)
@@ -1077,42 +1139,42 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   if(length(factors) > 1){
   for(i in factors[-length(factors)]){
   for(j in factors[(which(factors %in% i)+1):length(factors)]){
-    PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]] = plotPCA_PC123(object = data_set_transform,intgroup=c(i,j),returnData = TRUE)
+    PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]] = plotPCA_PC123(object = data_set_transform,intgroup=c(i,j),returnData = TRUE)
     png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j,".png"),width = 1920,height = 1080,units = "px")
-    plot_temp = ggplot(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]],
-                       aes(PC1, PC2, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["name"]])) +
+    plot_temp = ggplot(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]],
+                       aes(PC1, PC2, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["name"]])) +
             geom_point(size=4) +
-            xlab(paste0("PC1: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]], "percentVar"))[1],"% variance")) +
-            ylab(paste0("PC2: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]], "percentVar"))[2],"% variance")) +
+            xlab(paste0("PC1: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], "percentVar"))[1],"% variance")) +
+            ylab(paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], "percentVar"))[2],"% variance")) +
             theme(text = element_text(size = 20)) +
             coord_fixed() +
             scale_shape_manual(values = 15:100,name = j) +
             scale_color_discrete(name = i) +
             geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
             guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["group"]])) > 3){
+      if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]])) > 3){
         plot_temp = plot_temp +
-        stat_ellipse(geom = "polygon",alpha = 0.5,aes(fill = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]) > 3)) +
+        stat_ellipse(geom = "polygon",alpha = 0.5,aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]) > 3)) +
         labs(fill = "Ellipse")
       }
     print(plot_temp)
     while (!is.null(dev.list())){dev.off()}
     
     png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j,"_PC2.png"),width = 1920,height = 1080,units = "px")
-    plot_temp = ggplot(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]],
-                   aes(PC2, PC3, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["name"]])) +
+    plot_temp = ggplot(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]],
+                   aes(PC2, PC3, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["name"]])) +
             geom_point(size=4) +
-            xlab(paste0("PC2: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]], "percentVar"))[2],"% variance")) +
-            ylab(paste0("PC3: ",round(100 * attr(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]], "percentVar"))[3],"% variance")) +
+            xlab(paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], "percentVar"))[2],"% variance")) +
+            ylab(paste0("PC3: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], "percentVar"))[3],"% variance")) +
             theme(text = element_text(size = 20)) +
             coord_fixed() +
             scale_shape_manual(values = 15:100,name = j) +
             scale_color_discrete(name = i) +
             geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
             guides(color=guide_legend(override.aes=list(fill=NA)))
-    if(max(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["group"]])) > 3){
+    if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]])) > 3){
       plot_temp = plot_temp +      
-      stat_ellipse(geom = "polygon", alpha = 0.5, aes(fill = PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]) > 3)) +
+      stat_ellipse(geom = "polygon", alpha = 0.5, aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]) > 3)) +
       labs(fill = "Ellipse")
     }
     print(plot_temp)
@@ -1306,7 +1368,9 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   
   dir.create(paste0(rlog_vst,"/Significant_DEGs"),showWarnings = FALSE)
   dir.create(paste0(rlog_vst,"/PCA"),showWarnings = FALSE)
-  PCA_DEGs = list()
+  if(!exists("PCA_data")){
+    PCA_data = list()
+  }
   for(compare_var in names(deseq_results)){
       deseq_results[[compare_var]] = deseq_results[[compare_var]][order(deseq_results[[compare_var]][["padj"]]),]
       cat("Note: Removing ",sum(is.na(deseq_results[[compare_var]]))," empty genes from analysis\n", sep = "")
@@ -1363,41 +1427,41 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       
       ######       PCA DEGs       ######
       if(!is.null(attr(deseq_results[[compare_var]],which = "factor")) & length(deseq_sig) > 0){
-      PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]] = plotPCA_PC123(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),returnData = TRUE)
-      png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",compare_var,".png"),width = 1920,height = 1080,units = "px")
-      plot_temp = ggplot(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]],
-                         aes(PC1, PC2, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]][["name"]])) +
+      PCA_data[["DEGs"]][[compare_var]] = plotPCA_PC123(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),returnData = TRUE)
+      png(filename = paste0(rlog_vst,"/PCA/PCA_DEGs_",rlog_vst,"_",genes_isoforms,"_",compare_var,".png"),width = 1920,height = 1080,units = "px")
+      plot_temp = ggplot(PCA_data[["DEGs"]][[compare_var]],
+                         aes(PC1, PC2, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[compare_var]][["name"]])) +
         geom_point(size=4) +
-        xlab(paste0("PC1: ",round(100 * attr(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]], "percentVar"))[1],"% variance")) +
-        ylab(paste0("PC2: ",round(100 * attr(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]], "percentVar"))[2],"% variance")) +
+        xlab(paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[compare_var]], "percentVar"))[1],"% variance")) +
+        ylab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[compare_var]], "percentVar"))[2],"% variance")) +
         theme(text = element_text(size = 20)) +
         coord_fixed() +
         scale_color_discrete(name = attr(deseq_results[[compare_var]],which = "factor")) +
         geom_line(size = 0) +
         geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
         guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]][["group"]])) > 3){
+      if(max(table(PCA_data[["DEGs"]][[compare_var]][["group"]])) > 3){
         plot_temp = plot_temp +
-          stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]][["group"]]), lwd = 0, show.legend = any(table(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]][["group"]]) > 3)) +
+          stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["DEGs"]][[compare_var]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["DEGs"]][[compare_var]][["group"]]) > 3)) +
           labs(fill = "Ellipse")
       }
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
     
-      png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",compare_var,"_PC2.png"),width = 1920,height = 1080,units = "px")
-      plot_temp = ggplot(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]],
-                         aes(PC2, PC3, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]][["name"]])) +
+      png(filename = paste0(rlog_vst,"/PCA/PCA_DEGs_",rlog_vst,"_",genes_isoforms,"_",compare_var,"_PC2.png"),width = 1920,height = 1080,units = "px")
+      plot_temp = ggplot(PCA_data[["DEGs"]][[compare_var]],
+                         aes(PC2, PC3, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[compare_var]][["name"]])) +
         geom_point(size=4) +
-        xlab(paste0("PC2: ",round(100 * attr(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]], "percentVar"))[2],"% variance")) +
-        ylab(paste0("PC3: ",round(100 * attr(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]], "percentVar"))[3],"% variance")) +
+        xlab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[compare_var]], "percentVar"))[2],"% variance")) +
+        ylab(paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[compare_var]], "percentVar"))[3],"% variance")) +
         theme(text = element_text(size = 20)) +
         coord_fixed() +
         scale_color_discrete(name = attr(deseq_results[[compare_var]],which = "factor")) +
         geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
         guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]][["group"]])) > 3){
+      if(max(table(PCA_data[["DEGs"]][[compare_var]][["group"]])) > 3){
         plot_temp = plot_temp +
-          stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]][["group"]]), lwd = 0, show.legend = any(table(PCA_DEGs[[paste0(rlog_vst,"_",genes_isoforms,"_",compare_var)]][["group"]]) > 3)) +
+          stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["DEGs"]][[compare_var]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["DEGs"]][[compare_var]][["group"]]) > 3)) +
           labs(fill = "Ellipse")
       }
       print(plot_temp)
