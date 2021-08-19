@@ -327,14 +327,14 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
     for(degree in 1:360) {
       open3d()
       par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
-      plot3d(x = PCA_data[["DEGs"]][[PCA_DEG]][["PC1"]],
-             y = PCA_data[["DEGs"]][[PCA_DEG]][["PC2"]],
-             z = PCA_data[["DEGs"]][[PCA_DEG]][["PC3"]],
+      plot3d(x = PCA_data[["DEGs"]][[PC_factor]][[PCA_DEG]][["PC1"]],
+             y = PCA_data[["DEGs"]][[PC_factor]][[PCA_DEG]][["PC2"]],
+             z = PCA_data[["DEGs"]][[PC_factor]][[PCA_DEG]][["PC3"]],
              size = 10,
              col = colors_3d,
-             xlab = paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[PCA_DEG]], "percentVar"))[1],"% variance"),
-             ylab = paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[PCA_DEG]], "percentVar"))[2],"% variance"),
-             zlab = paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[PCA_DEG]], "percentVar"))[3],"% variance"),
+             xlab = paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[PC_factor]][[PCA_DEG]], "percentVar"))[1],"% variance"),
+             ylab = paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[PC_factor]][[PCA_DEG]], "percentVar"))[2],"% variance"),
+             zlab = paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[PC_factor]][[PCA_DEG]], "percentVar"))[3],"% variance"),
              type = "s",
              radius = 2) +
         legend3d("topright", legend = unique(experimental_design[[PC_factor]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(experimental_design[,PC_factor]))], pch = 16, cex=1, inset=c(0.02))
