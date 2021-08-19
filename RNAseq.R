@@ -260,7 +260,6 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
 
 # 3D PCA plot function
   PCA_3D = function(PC_factor){
-  dir.create("animation_merge",showWarnings = FALSE)
   colors_3d = NULL
   for(l in 1:length(unique(experimental_design[,PC_factor]))){
     colors_3d[experimental_design[,PC_factor] %in% unique(experimental_design[,PC_factor])[l]] = brewer.pal(n = 9,name = "Set1")[l]
@@ -268,6 +267,7 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
   
   # Single factor 3D PCAs
   if("Single_factor" %in% names(PCA_data)){
+  dir.create("animation_merge",showWarnings = FALSE)
   for(degree in 1:360) {
     open3d()
     par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
@@ -295,6 +295,7 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
   
   # Multiple factor 3D PCAs
   if("Multiple_factor" %in% names(PCA_data)){
+    dir.create("animation_merge",showWarnings = FALSE)
     for(degree in 1:360) {
       open3d()
       par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
@@ -324,6 +325,7 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
   if("DEGs" %in% names(PCA_data)){
   if(PC_factor %in% names(PCA_data[["DEGs"]])){
   for(PCA_DEG in names(PCA_data[["DEGs"]][[PC_factor]])){
+    dir.create("animation_merge",showWarnings = FALSE)
     for(degree in 1:360) {
       open3d()
       par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
@@ -342,7 +344,7 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
       rgl.snapshot(filename=paste("animation_merge/frame-",
                                   sprintf("%03d", degree), ".png", sep=""))
       while(length(rgl.dev.list()) != 0){rgl.close()}
-      cat("\rRunning DEGs | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+      cat("\rRunning DEGs ",PCA_DEG," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
     }
     cat("\nRunning ffmpeg...\n")
     try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",PC_factor,".mp4")))
