@@ -72,3 +72,16 @@ MethylSeq
 ```
 
 - First set-up in interactive R session, then run in shell (optional).
+
+```
+3D_PCA_run
+
+	-d | --dir      DESeq2 output directory
+        -f | --factors  Factors for 3D PCA (e.g. factor1,factor2,factor3; Default = All factors)
+        -l | --list     List all available factors for a specific analysis
+        -p | --pca      Types of PCA to return (1 = Single factor, 2 = Multi-factor, 3 = DEGs; e.g. 13; Default = 123)
+        -r | --rscript  Path to PCA_3D.R (Defaults bash script directory)
+        -h | --help     Display help
+```
+
+- The DESeq2 directory should include PCA_data.RData, created by RNAseq.R
