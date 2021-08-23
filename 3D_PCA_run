@@ -10,6 +10,7 @@ function print_usage(){
 	-d | --dir	DESeq2 output directory
 	-f | --factors	Factors for 3D PCA (e.g. factor1,factor2,factor3; Default = All factors)
 	-l | --list	List all available factors for a specific analysis
+	-p | --pca	Types of PCA to return (1 = Single factor, 2 = Multi-factor, 3 = DEGs; e.g. 13; Default = 123)
 	-r | --rscript	Path to PCA_3D.R (Defaults bash script directory)
 	-h | --help	Display help
 	
@@ -33,6 +34,11 @@ do
   list=1
   shift
   ;;
+  -p | --pca)
+  shift
+  pca_type=$1
+  shift
+  ;;
   -r | --rscript)
   shift
   rscript=$1
@@ -53,6 +59,19 @@ then
  echo "Install using:"
  echo "sudo apt install xvfb"
  exit 1
+fi
+
+if ! command -v ffmpeg $> /dev/null
+then
+ echo "ffmpeg not installed!"
+ echo "Install using:"
+ echo "sudo apt install ffmpeg"
+ exit 1
+fi
+
+if [ -z ${pca_type+x} ]
+then
+ pca_type=123
 fi
 
 echo '#!/usr/bin/env Rscript
@@ -84,7 +103,7 @@ if(! "factors" %in% names(args)){
 }
 for(factor in factors){
   cat("Creating 3D PCA for factor ",factor,"\n",sep = "")
-  PCA_3D(PC_factor = factor)
+  PCA_3D(PC_factor = factor, pca_type = as.numeric(args[["pca_type"]]))
 }
 }' > $rscript
 chmod +x $rscript
@@ -98,9 +117,9 @@ fi
 
 if [ ${#factors[@]} -ne 0 ]
 then
- xvfb-run $rscript --factors $factor --wd $wd
+ xvfb-run $rscript --factors $factor --pca_type $pca_type --wd $wd
 else
- xvfb-run $rscript --wd $wd
+ xvfb-run $rscript --pca_type $pca_type --wd $wd
 fi
 
 rm --force $rscript
