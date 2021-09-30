@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #####    RNA-seq analysis (RSEM / counts)    #####
 
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
@@ -3530,5 +3529,4 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","final_data.RData"))
   }
 
->>>>>>> 4fe6ccc7cf8952e1a6a30c90fe25af21ccd54463
 cat("#####    End of DEseq analysis    #####\n")
