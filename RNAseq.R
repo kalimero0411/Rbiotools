@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #####    RNA-seq analysis (RSEM / counts)    #####
 
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
@@ -1183,7 +1182,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
             guides(color=guide_legend(override.aes=list(fill=NA)))
     if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]])) > 3){
       plot_temp = plot_temp +      
-      stat_ellipse(geom = "polygon", alpha = 0.5, aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[[paste0(rlog_vst,"_",genes_isoforms,"_",i)]][["group"]]) > 3)) +
+      stat_ellipse(geom = "polygon", alpha = 0.5, aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]) > 3)) +
       labs(fill = "Ellipse")
     }
     print(plot_temp)
@@ -3530,5 +3529,4 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","final_data.RData"))
   }
 
->>>>>>> 4fe6ccc7cf8952e1a6a30c90fe25af21ccd54463
 cat("#####    End of DEseq analysis    #####\n")
