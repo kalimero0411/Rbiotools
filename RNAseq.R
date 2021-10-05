@@ -279,7 +279,7 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
            zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[3],"% variance"),
            type = "s",
            radius = 2) +
-      legend3d("topright", legend = unique(experimental_design[[run_factor]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(experimental_design[,run_factor]))], pch = 16, cex=1, inset=c(0.02))
+      legend3d("topright", legend = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
       view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
       rgl.snapshot(filename=paste("animation_merge/frame-",
                                   sprintf("%03d", degree), ".png", sep=""))
