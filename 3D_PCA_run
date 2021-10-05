@@ -101,10 +101,8 @@ if(! "factors" %in% names(args)){
 }else{
   factors = unlist(strsplit(args[["factors"]],split = ","))
 }
-for(factor in factors){
-  cat("Creating 3D PCA for factor ",factor,"\n",sep = "")
-  PCA_3D(PC_factor = factor, pca_type = as.numeric(args[["pca_type"]]))
-}
+  cat("Creating 3D PCA for factors ",paste(factors, collapse = " | "),"\n",sep = "")
+  PCA_3D(PC_factor = factors, pca_type = as.numeric(args[["pca_type"]]))
 }' > $rscript
 chmod +x $rscript
 
@@ -117,7 +115,7 @@ fi
 
 if [ ${#factors[@]} -ne 0 ]
 then
- xvfb-run $rscript --factors $factor --pca_type $pca_type --wd $wd
+ xvfb-run $rscript --factors $factors --pca_type $pca_type --wd $wd
 else
  xvfb-run $rscript --pca_type $pca_type --wd $wd
 fi
