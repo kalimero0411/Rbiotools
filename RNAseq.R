@@ -632,48 +632,6 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
 # Set the environment for pheatmap_seed to that of pheatmap  
 environment(pheatmap_seed) = environment(pheatmap)
 
-#### Word cloud ####
-excluded_words = c("activity","response","process","cellular","stimulus","regulation","metabolic","compound","organic","organism","substance","singleorganism","biological","via","modification","biosynthetic","acid","protein","negative")
-rquery.wordcloud = function(x, type=c("text", "url", "file"),lang="english", excludeWords = excluded_words,textStemming=FALSE,  colorPalette="Dark2",min.freq=3, max.words=200, scale = c(9,0.5))
-{
-  if(type[1]=="file") text <- readLines(x)
-  else if(type[1]=="url") text <- html_to_text(x)
-  else if(type[1]=="text") text <- x
-  
-  # Load the text as a corpus
-  docs <- Corpus(VectorSource(text))
-  # Convert the text to lower case
-  docs <- suppressWarnings(tm_map(docs, content_transformer(tolower)))
-  # Remove numbers
-  docs <- suppressWarnings(tm_map(docs, removeNumbers))
-  # Remove stopwords for the language
-  docs <- suppressWarnings(tm_map(docs, removeWords, stopwords(lang)))
-  # Remove punctuations
-  docs <- suppressWarnings(tm_map(docs, removePunctuation))
-  # Eliminate extra white spaces
-  docs <- suppressWarnings(tm_map(docs, stripWhitespace))
-  # Remove your own stopwords
-  if(!is.null(excludeWords))
-    docs <- suppressWarnings(tm_map(docs, removeWords, excludeWords))
-  # Text stemming
-  if(textStemming) docs <- suppressWarnings(tm_map(docs, stemDocument))
-  # Create term-document matrix
-  tdm <- TermDocumentMatrix(docs)
-  m <- as.matrix(tdm)
-  v <- sort(rowSums(m),decreasing=TRUE)
-  d <- data.frame(word = names(v),freq=v)
-  # check the color palette name
-  if(!colorPalette %in% rownames(brewer.pal.info)) colors = colorPalette
-  else colors = brewer.pal(8, colorPalette)
-  # Plot the word cloud
-  set.seed(random_seed)
-  wordcloud(d$word,d$freq, min.freq=min.freq, max.words=max.words,
-            random.order=FALSE, rot.per=0.35,
-            use.r.layout=FALSE, colors=colors, scale=scale)
-  
-  invisible(list(tdm=tdm, freqTable = d))
-}
-
 #####    Run settings    #####
 if("Run settings" %in% section){
   # Get mapper output and factor number
@@ -1389,8 +1347,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       
       #####    Create count matrix heat map    ######
       cat("#####    Creating count matrix heat map    ######\n")
-      deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha,]
-      deseq_results_sig[[compare_var]] = deseq_results_sig[[compare_var]][abs(deseq_results_sig[[compare_var]][["log2FoldChange"]]) >= 1,]
+      deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
       deseq_sig = rownames(deseq_results_sig[[compare_var]])
       DE_genes_sig = deseq_sig
       if(remove_isoforms){
@@ -1657,15 +1614,24 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
               DE_genes_sig = unique(sub(pattern = isoform_pattern,replacement = "",x = DE_genes_sig))
             }
           }
-        for(ontology in c("BP","CC","MF")){
+        for(ontology in c("BP","MF","CC")){
           DEG_table = GO_table[GO_table[["Gene"]] %in% DE_genes_sig,]
-          DEG_table = DEG_table[!is.na(DEG_table[["Term"]]),]
-          DEG_table = DEG_table[DEG_table[["Ontology"]] == ontology,]
+          DEG_table = DEG_table[!is.na(DEG_table[["Term"]]),,drop = FALSE]
+          DEG_table = DEG_table[DEG_table[["Ontology"]] == ontology,,drop = FALSE]
           cat(format(round((3*match(k,if(exists("k_clusters")){c("all",1:k_clusters)}else{"all"}))/(3*if(exists("k_clusters")){k_clusters + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \r",sep = "")
           if(nrow(DEG_table) > 0){
             png(filename = paste0(rlog_vst,"/Wordcloud/Wordcloud_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
             tryCatch(expr = {
-              rquery.wordcloud(x = DEG_table[["Term"]],type = "text",lang = "english",min.freq = 1, scale = c(9,0.5))
+              wordcloud(words = names(table(DEG_table$Term)),
+                        freq = table(DEG_table$Term),
+                        min.freq=1,
+                        max.words=100,
+                        random.order=FALSE,
+                        rot.per=0.35,
+                        use.r.layout=FALSE,
+                        colors=brewer.pal(8, "Dark2"),
+                        scale=c(5,0.4)
+              )
             },error = function(e) e)
             while (!is.null(dev.list())){dev.off()}
           }
