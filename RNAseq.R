@@ -915,10 +915,10 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
                                                                         p.adj = "fdr",
                                                                         method = 3,
                                                                         norm = FALSE,
-                                                                        factor = colnames(experimental_design)[1]),
+                                                                        factor = primary_factor),
                                                    factors = experimental_design,
                                                    length = as.matrix(gene_length)[,1]),
-                                   factor = colnames(experimental_design)[1],
+                                   factor = primary_factor,
                                    norm = "n")@assayData$exprs)
       gene_length = gene_length[rownames(count_table),,drop = FALSE]
       data_set = DESeqDataSetFromMatrix(countData = count_table,
@@ -1632,13 +1632,14 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
         for(ontology in c("BP","MF","CC")){
           DEG_table = GO_table[GO_table[["Gene"]] %in% DE_genes_sig,]
           DEG_table = DEG_table[!is.na(DEG_table[["Term"]]),,drop = FALSE]
-          DEG_table = DEG_table[DEG_table[["Ontology"]] == ontology,,drop = FALSE]
+          DEG_table = table(DEG_table[DEG_table[["Ontology"]] == ontology,"Term"])
+          DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
           cat(format(round((3*match(k,if(exists("k_clusters")){c("all",1:k_clusters)}else{"all"}))/(3*if(exists("k_clusters")){k_clusters + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \r",sep = "")
           if(nrow(DEG_table) > 0){
             png(filename = paste0(rlog_vst,"/Wordcloud/Wordcloud_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
             tryCatch(expr = {
-              wordcloud(words = names(table(DEG_table$Term)),
-                        freq = table(DEG_table$Term),
+              wordcloud(words = names(DEG_table),
+                        freq = DEG_table,
                         min.freq=1,
                         max.words=100,
                         random.order=FALSE,
