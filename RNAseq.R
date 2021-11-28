@@ -2,9 +2,10 @@
 
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
              "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","rgl","ape","cluster","data.table",
-             "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils","VennDiagram")
+             "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils","VennDiagram","wordcloud",
+             "tm","topGO","Rgraphviz","NOISeq")
 if(interactive()){
-  packages = c(packages,"rChoiceDialogs","wordcloud","tm","topGO","Rgraphviz")
+  packages = c(packages,"rChoiceDialogs")
 }
 # if(!"bcbioRNASeq" %in% rownames(installed.packages())){
 #   install.packages(
@@ -12,7 +13,7 @@ if(interactive()){
 #     repos = c("https://r.acidgenomics.com",getOption("repos"))
 #   )
 # }
-# packages = c(packages,"bcbioRNASeq")
+packages = c(packages,"bcbioRNASeq")
 
 invisible(
   suppressMessages(
@@ -34,7 +35,8 @@ if(!interactive()){
   if(!all(must_args %in% names(args))){
     help = matrix(data = c("--rdata    ","RData file path",
                            "--wd","Working directory path",
-                           "--name","Experiment name (all data will output to a directory by that name in the working directory)",
+                           "--name","Experiment name (all data will output to a directory",
+                           "","by that name in the working directory)",
                            "--input","Aligner output files path (RSEM, STAR or kallisto)",
                            "--design","DESeq2 design formula (e.g. ~Genotype+treatment)",
                            "--reduced","DESeq2 reduced design formula (Default = ~1)",
@@ -62,11 +64,12 @@ if(!interactive()){
                            "--seed","Seed value for random number generator",
                            "--heatmap_no_clust","Cluster rows in heatmaps",
                            "--GO_file","Path to GO annotation file",
+                           "--NOISeq","Perform NOISeq correction (ARSyNseq: counts | proportion | FDR)",
                            "--t","Number of compute threads",
                            "--arg","Additional R arguments (multiple arguments in separate flags)")
                   ,ncol = 2,byrow = TRUE)
     prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
-    stop(paste0("Error: Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
+    stop(paste0("Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
     if(sum(as.numeric(unlist(strsplit(args[["process"]],split = ","))) %in% c(2,3,4)) > 1){
       stop(paste0("Error: Select only one DESeq2 analysis (2,3 or 4)"),call. = TRUE)
     }
@@ -79,11 +82,8 @@ if(!interactive()){
   if("input" %in% names(args)){
     input_path = args[["input"]]
   }
-  if("heatmap_no_clust" %in% names(args)){
-    heatmap_row_clust = FALSE
-  }else{
-    heatmap_row_clust = TRUE
-  }
+  heatmap_row_clust = !"heatmap_no_clust" %in% names(args)
+  NOISeq_correction = "NOISeq" %in% names(args)
   dir.create(path = paste0(wd,"/",Experiment_name),showWarnings = FALSE)
   setwd(paste0(wd,"/",Experiment_name))
   if(!exists("design_formula")){
@@ -91,7 +91,7 @@ if(!interactive()){
   }
   if(!exists("reduced_formula")){
     if("reduced" %in% names(args)){
-    reduced_formula = formula(args[["reduced"]])
+      reduced_formula = formula(args[["reduced"]])
     }else{
       reduced_formula = formula(~1)
     }
@@ -114,11 +114,7 @@ if(!interactive()){
               "Venn diagram",
               "Variable heatmap and report")
   section = section[as.numeric(unlist(strsplit(args[["process"]],split = ",")))]
-  if("LRT-DESeq" %in% section){
-    LRT_DESeq2 = TRUE
-  }else{
-    LRT_DESeq2 = FALSE
-    }
+  LRT_DESeq2 = "LRT-DESeq" %in% section
   if(!"Optimize K-means" %in% section & "K-means clustering" %in% section){
     if(!"k" %in% names(args)){
       stop(paste0("Error: Please specify the number of k clusters with --k OR K cluster optimization with --process 8"),call. = TRUE)
@@ -167,7 +163,7 @@ if(!interactive()){
   if(.Platform$OS.type == "unix"){
     register(BPPARAM = MulticoreParam(workers = threads))
   }else{
-    register(BPPARAM = SerialParam())
+    register(BPPARAM = SnowParam(workers = threads))
   }
   
   ##### RData output ######
@@ -186,7 +182,7 @@ threads = detectCores()
 if(.Platform$OS.type == "unix"){
   register(BPPARAM = MulticoreParam(workers = threads))
 }else{
-  register(BPPARAM = SerialParam())
+  register(BPPARAM = SnowParam(workers = threads))
 }
 
 ###### Set working directory ######
@@ -684,7 +680,7 @@ if("LRT-DESeq" %in% section){
 }
 
   # Create experimental design
-  cat("Text file: column 1 sample names with title, column 2 file path with title, and the first row of the rest of the columns as factor names")
+  cat("Text file: column 1 sample names with title, column 2 file path with title, and the first row of the rest of the columns as factor names\n")
   meta_input = select.list(choices = c("Text file","Manual input"),multiple = FALSE,title = "Input method",graphics = TRUE)
   if(meta_input == "Text file"){
     experimental_design = read.table(file = file.choose(),header = TRUE,sep = "\t",row.names = 1)
@@ -800,6 +796,7 @@ if("LRT-DESeq" %in% section){
 alpha = as.numeric(readline(prompt = "Choose alpha cutoff: "))
 FDR_cutoff = as.numeric(readline(prompt = "Choose FDR cutoff: "))
 rlog_vst = select.list(choices = c("rlog","VST"),multiple = FALSE,title = "Select transformation",graphics = TRUE)
+NOISeq_correction = select.list(choices = c("Yes","No"),multiple = FALSE,title = "NOISeq correction?",graphics = TRUE) == "Yes"
 random_seed = as.numeric(readline(prompt = "Select seed value for random number generator: "))
 
 if(all(!"Optimize K-means" %in% section,"K-means clustering" %in% section)){
@@ -912,6 +909,24 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
                                       tidy = FALSE,
                                       ignoreRank = FALSE)
   }
+    if(NOISeq_correction){
+      count_table = round(ARSyNseq(data = readData(data = filtered.data(dataset = count_table,
+                                                                        depth = colSums(count_table),
+                                                                        p.adjust = "fdr",
+                                                                        method = 3,
+                                                                        norm = FALSE,
+                                                                        factor = colnames(experimental_design)[1]),
+                                                   factors = experimental_design,
+                                                   length = as.matrix(gene_length)[,1]),
+                                   factor = colnames(experimantal_design)[1],
+                                   norm = "n"))
+      gene_length = gene_length[rownames(count_table),,drop = FALSE]
+      data_set = DESeqDataSetFromMatrix(countData = count_table,
+                                        colData = experimental_design,
+                                        design = design_formula,
+                                        tidy = FALSE,
+                                        ignoreRank = FALSE)
+    }
       TPM = if(ncol(count_table) == ncol(gene_length)){
         as.data.frame(lapply(1:ncol(count_table),function(x){
           RPK = count_table[,x]/(gene_length[,x]/1000)
