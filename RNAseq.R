@@ -918,7 +918,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
                                                                         factor = colnames(experimental_design)[1]),
                                                    factors = experimental_design,
                                                    length = as.matrix(gene_length)[,1]),
-                                   factor = colnames(experimantal_design)[1],
+                                   factor = colnames(experimental_design)[1],
                                    norm = "n"))
       gene_length = gene_length[rownames(count_table),,drop = FALSE]
       data_set = DESeqDataSetFromMatrix(countData = count_table,
