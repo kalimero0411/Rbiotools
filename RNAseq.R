@@ -912,7 +912,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
     if(NOISeq_correction){
       count_table = round(ARSyNseq(data = readData(data = filtered.data(dataset = count_table,
                                                                         depth = colSums(count_table),
-                                                                        p.adjust = "fdr",
+                                                                        p.adj = "fdr",
                                                                         method = 3,
                                                                         norm = FALSE,
                                                                         factor = colnames(experimental_design)[1]),
