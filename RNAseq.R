@@ -268,13 +268,12 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
     plot3d(x = PCA_data[["Single_factor"]][[run_factor]][["PC1"]],
            y = PCA_data[["Single_factor"]][[run_factor]][["PC2"]],
            z = PCA_data[["Single_factor"]][[run_factor]][["PC3"]],
-           size = 10,
            col = colors_3d,
+           size = 2,
            xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[1],"% variance"),
            ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[2],"% variance"),
            zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[3],"% variance"),
-           type = "s",
-           radius = 2) +
+           type = "s") +
       legend3d("topright", legend = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
       view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
       rgl.snapshot(filename=paste("animation_merge/frame-",
@@ -300,13 +299,12 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
       plot3d(x = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC1"]],
              y = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC2"]],
              z = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC3"]],
-             size = 10,
              col = colors_3d,
+             size = 2,
              xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[1],"% variance"),
              ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[2],"% variance"),
              zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[3],"% variance"),
-             type = "s",
-             radius = 2) +
+             type = "s") +
         legend3d("topright", legend = unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
       view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
       rgl.snapshot(filename=paste("animation_merge/frame-",
@@ -333,13 +331,12 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
       plot3d(x = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC1"]],
              y = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC2"]],
              z = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC3"]],
-             size = 10,
              col = colors_3d,
+             size = 2,
              xlab = paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[1],"% variance"),
              ylab = paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[2],"% variance"),
              zlab = paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[3],"% variance"),
-             type = "s",
-             radius = 2) +
+             type = "s") +
         legend3d("topright", legend = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
       view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
       rgl.snapshot(filename=paste("animation_merge/frame-",
@@ -717,19 +714,19 @@ if("LRT-DESeq" %in% section){
       file_names = rchoose.files(caption = "Select count file(s): ",multi = TRUE)
       
       # HTseq-count input
-      if(Mapper == "HTseq-count"){
-        if(Sys.info()[["sysname"]] == "Linux"){
-          for(i in file_names){
-            try(system(command = paste0("sed -i -E 's/^N_.{1,}$//g' ",i," && sed -i -E '/^$/d' ",i)))
-          }
-        }else{
-          cat("#################################################################\n")
-          cat("Make sure to remove the first 4 lines of the output if they exist\n")
-          cat("N_unmapped | N_multimapping | N_noFeature | N_ambiguous\n")
-          cat("#################################################################\n")
-          invisible(readline(prompt="Press [enter] to continue"))
-        }
-      }
+      # if(Mapper == "HTseq-count"){
+      #   if(Sys.info()[["sysname"]] == "Linux"){
+      #     for(i in file_names){
+      #       try(system(command = paste0("sed -i -E 's/^N_.{1,}$//g' ",i," && sed -i -E '/^$/d' ",i)))
+      #     }
+      #   }else{
+      #     cat("#################################################################\n")
+      #     cat("Make sure to remove the first 4 lines of the output if they exist\n")
+      #     cat("N_unmapped | N_multimapping | N_noFeature | N_ambiguous\n")
+      #     cat("#################################################################\n")
+      #     invisible(readline(prompt="Press [enter] to continue"))
+      #   }
+      # }
       
     }
     
@@ -1086,8 +1083,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
             theme(text = element_text(size = 20)) +
             coord_fixed() +
             scale_color_discrete(name = i) +
-            geom_line(size = 0) +
-            geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
+            geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
             guides(color=guide_legend(override.aes=list(fill=NA)))
       if(max(table(PCA_data[["Single_factor"]][[i]][["group"]])) > 3){
         plot_temp = plot_temp +
@@ -1106,7 +1102,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
               theme(text = element_text(size = 20)) +
               coord_fixed() +
               scale_color_discrete(name = i) +
-              geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
+              geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
               guides(color=guide_legend(override.aes=list(fill=NA)))
       if(max(table(PCA_data[["Single_factor"]][[i]][["group"]])) > 3){
         plot_temp = plot_temp +
@@ -1133,7 +1129,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
             coord_fixed() +
             scale_shape_manual(values = 15:100,name = j) +
             scale_color_discrete(name = i) +
-            geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
+            geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
             guides(color=guide_legend(override.aes=list(fill=NA)))
       if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]])) > 3){
         plot_temp = plot_temp +
@@ -1153,7 +1149,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
             coord_fixed() +
             scale_shape_manual(values = 15:100,name = j) +
             scale_color_discrete(name = i) +
-            geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
+            geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
             guides(color=guide_legend(override.aes=list(fill=NA)))
     if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]])) > 3){
       plot_temp = plot_temp +      
