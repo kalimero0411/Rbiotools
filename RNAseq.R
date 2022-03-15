@@ -1016,9 +1016,9 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       time_start=Sys.time()
       pheatmap(
         if(nrow(data_set_matrix) > 65536){
-        data_set_matrix[names(head(sort(abs(rowSums(data_set_matrix)),decreasing = TRUE),n = 65536)),]
+        data_set_matrix_scaled[names(head(sort(abs(rowSums(data_set_matrix_scaled)),decreasing = TRUE),n = 65536)),]
       }else{
-        data_set_matrix
+        data_set_matrix_scaled
       },
              show_rownames = FALSE,
              cluster_rows = heatmap_row_clust,
@@ -1034,7 +1034,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       rownames(gene_subset) = gene_subset$V1
       gene_subset = gene_subset[,-1,drop = FALSE]
       # colnames(gene_subset) = "Pathway"
-      pheatmap(data_set_matrix[rownames(data_set_matrix) %in% rownames(gene_subset),],
+      pheatmap(data_set_matrix_scaled[rownames(data_set_matrix_scaled) %in% rownames(gene_subset),],
                show_rownames = FALSE,
                annotation_row = gene_subset,
                annotation_col = as.data.frame(colData(data_set)),
@@ -1042,13 +1042,13 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
                annotation_colors = color_select)
     }
     if(LRT_DESeq2){
-      pheatmap(assay(data_set_transform_LRT),
+      pheatmap(scale(assay(data_set_transform_LRT)),
                show_rownames = FALSE,
                cluster_rows = heatmap_row_clust,
                annotation_col = as.data.frame(colData(data_set)),
                filename = paste0(rlog_vst,"/Heatmaps/Heatmap_LRT_",rlog_vst,"_",genes_isoforms,".png"),
                annotation_colors = color_select)
-      pheatmap(assay(data_set_transform_LRT)[data_set_LRT_results_sig_genes,],
+      pheatmap(scale(assay(data_set_transform_LRT)[data_set_LRT_results_sig_genes,]),
                show_rownames = FALSE,
                cluster_rows = heatmap_row_clust,
                annotation_col = as.data.frame(colData(data_set)),
@@ -1383,7 +1383,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
         }
       }
       if("DEG heatmap" %in% section & length(deseq_sig) > 0){
-      pheatmap(data_set_matrix[deseq_sig,,drop = FALSE],
+      pheatmap(data_set_matrix_scaled[deseq_sig,,drop = FALSE],
                show_rownames = FALSE,
                cluster_rows = heatmap_row_clust,
                annotation_col = as.data.frame(colData(data_set)),
