@@ -229,405 +229,6 @@ section = select.list(choices = c("Run settings",
                        multiple = TRUE,
                        title = "Selection sections",
                        graphics = TRUE)
-eval(parse(text = getURL("https://raw.githubusercontent.com/kevinblighe/clusGapKB/master/clusGapKB.R", ssl.verifypeer = FALSE)))
-
-# PCA plot function for PC2 and PC3
-plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData = FALSE){
-  rv = rowVars(assay(object))
-  if(length(rv) < 3){
-    cat("#### Not enough genes to create PCA for: ",intgroup," ####\n")
-    return(NULL)
-  }
-  select = order(rv, decreasing = TRUE)[seq_len(min(ntop,length(rv)))]
-  pca = prcomp(t(assay(object)[select, ]))
-  percentVar = pca$sdev^2/sum(pca$sdev^2)
-  if (!all(intgroup %in% names(colData(object)))){
-    stop("the argument 'intgroup' should specify columns of colData(dds)")
-  }
-  intgroup.df = as.data.frame(colData(object)[, intgroup,drop = FALSE])
-  group = if (length(intgroup) > 1){
-    factor(apply(intgroup.df, 1, paste, collapse = ":"))
-  }else{
-    colData(object)[[intgroup]]
-  }
-  d = data.frame(PC1 = pca$x[, 1],PC2 = pca$x[, 2], PC3 = pca$x[, 3], group = group,intgroup.df, name = colnames(object))
-  if (returnData){
-    attr(d, "percentVar") = percentVar[1:3]
-    return(d)
-  }
-  ggplot(data = d, aes_string(x = "PC2", y = "PC3", color = "group")) + geom_point(size = 3) + xlab(paste0("PC2: ", round(percentVar[2]*100), "% variance")) + ylab(paste0("PC3: ", round(percentVar[3]*100), "% variance")) + coord_fixed()
-}
-
-# 3D PCA plot function
-  PCA_3D = function(PC_factor,pca_type){
-    multi_done = list()
-    for(run_factor in PC_factor){
-  colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Single_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))]
-  # Single factor 3D PCAs
-  if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
-  dir.create("animation_merge",showWarnings = FALSE)
-  for(degree in 1:360) {
-    open3d()
-    par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
-    plot3d(x = PCA_data[["Single_factor"]][[run_factor]][["PC1"]],
-           y = PCA_data[["Single_factor"]][[run_factor]][["PC2"]],
-           z = PCA_data[["Single_factor"]][[run_factor]][["PC3"]],
-           col = colors_3d,
-           size = 2,
-           xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[1],"% variance"),
-           ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[2],"% variance"),
-           zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[3],"% variance"),
-           type = "s") +
-      legend3d("topright", legend = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
-      view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
-      rgl.snapshot(filename=paste("animation_merge/frame-",
-                                  sprintf("%03d", degree), ".png", sep=""))
-    while(length(rgl.dev.list()) != 0){rgl.close()}
-    cat("\rRunning single factor ",run_factor," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
-  }
-  cat("\nRunning ffmpeg...\n")
-  try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",run_factor,".mp4")))
-  unlink("animation_merge",recursive = TRUE)
-  }
-  
-  # Multiple factor 3D PCAs
-  if("Multiple_factor" %in% names(PCA_data) & grepl(pattern = 2,pca_type)){
-      for(PCA_comp in names(PCA_data[["Multiple_factor"]])){
-        colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]],table = unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]))]
-        if(run_factor %in% attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor") & !any(sapply(multi_done,function(x){all(x==attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor"))}))){
-          multi_done = append(multi_done,values = list(attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor")))
-    dir.create("animation_merge",showWarnings = FALSE)
-    for(degree in 1:360) {
-      open3d()
-      par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
-      plot3d(x = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC1"]],
-             y = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC2"]],
-             z = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC3"]],
-             col = colors_3d,
-             size = 2,
-             xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[1],"% variance"),
-             ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[2],"% variance"),
-             zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[3],"% variance"),
-             type = "s") +
-        legend3d("topright", legend = unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
-      view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
-      rgl.snapshot(filename=paste("animation_merge/frame-",
-                                  sprintf("%03d", degree), ".png", sep=""))
-      while(length(rgl.dev.list()) != 0){rgl.close()}
-      cat("\rRunning multiple factor ",PCA_comp," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
-    }
-    cat("\nRunning ffmpeg...\n")
-    try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",PCA_comp,".mp4")))
-    unlink("animation_merge",recursive = TRUE)
-      }
-    }
-  }
-  
-  # DEGs 3D PCAs
-  if("DEGs" %in% names(PCA_data) & grepl(pattern = 3,pca_type)){
-  if(run_factor %in% names(PCA_data[["DEGs"]])){
-  for(PCA_comp in names(PCA_data[["DEGs"]][[run_factor]])){
-    colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]],table = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))]
-    dir.create("animation_merge",showWarnings = FALSE)
-    for(degree in 1:360) {
-      open3d()
-      par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
-      plot3d(x = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC1"]],
-             y = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC2"]],
-             z = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC3"]],
-             col = colors_3d,
-             size = 2,
-             xlab = paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[1],"% variance"),
-             ylab = paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[2],"% variance"),
-             zlab = paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[3],"% variance"),
-             type = "s") +
-        legend3d("topright", legend = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
-      view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
-      rgl.snapshot(filename=paste("animation_merge/frame-",
-                                  sprintf("%03d", degree), ".png", sep=""))
-      while(length(rgl.dev.list()) != 0){rgl.close()}
-      cat("\rRunning DEGs ",PCA_comp," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
-    }
-    cat("\nRunning ffmpeg...\n")
-    try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_DEGs_",rlog_vst,"_",genes_isoforms,"_",PCA_comp,".mp4")))
-    unlink("animation_merge",recursive = TRUE)
-    }
-  }
-  }
-    }
-  }
-  
-# Kmeans pheatmap function for seed setting
-  pheatmap_seed = function(mat,
-                           color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
-                           kmeans_k = NA,
-                           breaks = NA,
-                           border_color = "grey60",
-                           cellwidth = NA,
-                           cellheight = NA,
-                           scale = "none",
-                           cluster_rows = TRUE,
-                           cluster_cols = TRUE,
-                           clustering_distance_rows = "euclidean",
-                           clustering_distance_cols = "euclidean",
-                           clustering_method = "complete",
-                           clustering_callback = identity2,
-                           cutree_rows = NA,
-                           cutree_cols = NA,
-                           treeheight_row = ifelse((class(cluster_rows) == "hclust") || cluster_rows, 50, 0), treeheight_col = ifelse((class(cluster_cols) == "hclust") || cluster_cols, 50, 0),
-                           legend = TRUE,
-                           legend_breaks = NA,
-                           legend_labels = NA,
-                           annotation_row = NA,
-                           annotation_col = NA,
-                           annotation = NA,
-                           annotation_colors = NA,
-                           annotation_legend = TRUE,
-                           annotation_names_row = TRUE,
-                           annotation_names_col = TRUE,
-                           drop_levels = TRUE,
-                           show_rownames = T,
-                           show_colnames = T,
-                           main = NA,
-                           fontsize = 10,
-                           fontsize_row = fontsize,
-                           fontsize_col = fontsize,
-                           angle_col = c("270", "0", "45", "90", "315"),
-                           display_numbers = F,
-                           number_format = "%.2f",
-                           number_color = "grey30",
-                           fontsize_number = 0.8 * fontsize,
-                           gaps_row = NULL,
-                           gaps_col = NULL,
-                           labels_row = NULL,
-                           labels_col = NULL,
-                           filename = NA,
-                           width = NA,
-                           height = NA,
-                           silent = FALSE,
-                           na_col = "#DDDDDD",
-                           seed_input = 123, ...){
-    # Set labels
-    if(is.null(labels_row)){
-      labels_row = rownames(mat)
-    }
-    if(is.null(labels_col)){
-      labels_col = colnames(mat)
-    }
-    # Preprocess matrix
-    mat = as.matrix(mat)
-    if(scale != "none"){
-      mat = scale_mat(mat, scale)
-      if(is.na2(breaks)){
-        breaks = generate_breaks(mat, length(color), center = T)
-      }
-    }
-    # Kmeans
-    if(!is.na(kmeans_k)){
-      # Cluster data
-      set.seed(seed_input)
-      km = kmeans(mat, kmeans_k, iter.max = 100)
-      mat = km$centers
-      # Compose rownames
-      t = table(km$cluster)
-      labels_row = sprintf("Cluster: %s Size: %d", names(t), t)
-    }
-    else{
-      km = NA
-    }
-    # Format numbers to be displayed in cells
-    if(is.matrix(display_numbers) | is.data.frame(display_numbers)){
-      if(nrow(display_numbers) != nrow(mat) | ncol(display_numbers) != ncol(mat)){
-        stop("If display_numbers provided as matrix, its dimensions have to match with mat")
-      }
-      display_numbers = as.matrix(display_numbers)
-      fmat = matrix(as.character(display_numbers), nrow = nrow(display_numbers), ncol = ncol(display_numbers))
-      fmat_draw = TRUE
-    }else{
-      if(display_numbers){
-        fmat = matrix(sprintf(number_format, mat), nrow = nrow(mat), ncol = ncol(mat))
-        fmat_draw = TRUE
-      }else{
-        fmat = matrix(NA, nrow = nrow(mat), ncol = ncol(mat))
-        fmat_draw = FALSE
-      }
-    }
-    # Do clustering
-    if((class(cluster_rows) == "hclust") || cluster_rows){
-      if(class(cluster_rows) == "hclust"){
-        tree_row = cluster_rows
-      } else {
-        tree_row = cluster_mat(mat, distance = clustering_distance_rows, method = clustering_method)
-        tree_row = clustering_callback(tree_row, mat)
-      }
-      mat = mat[tree_row$order, , drop = FALSE]
-      fmat = fmat[tree_row$order, , drop = FALSE]
-      labels_row = labels_row[tree_row$order]
-      if(!is.na(cutree_rows)){
-        gaps_row = find_gaps(tree_row, cutree_rows)
-      }else{
-        gaps_row = NULL
-      }
-    }else{
-      tree_row = NA
-      treeheight_row = 0
-    }
-    if((class(cluster_cols) == "hclust") || cluster_cols){
-      if(class(cluster_cols) == "hclust"){
-        tree_col = cluster_cols
-      } else {
-        tree_col = cluster_mat(t(mat), distance = clustering_distance_cols, method = clustering_method)
-        tree_col = clustering_callback(tree_col, t(mat))
-      }
-      mat = mat[, tree_col$order, drop = FALSE]
-      fmat = fmat[, tree_col$order, drop = FALSE]
-      labels_col = labels_col[tree_col$order]
-      if(!is.na(cutree_cols)){
-        gaps_col = find_gaps(tree_col, cutree_cols)
-      }else{
-        gaps_col = NULL
-      }
-    }else{
-      tree_col = NA
-      treeheight_col = 0
-    }
-    attr(fmat, "draw") = fmat_draw
-    # Colors and scales
-    if(!is.na2(legend_breaks) & !is.na2(legend_labels)){
-      if(length(legend_breaks) != length(legend_labels)){
-        stop("Lengths of legend_breaks and legend_labels must be the same")
-      }
-    }
-    if(is.na2(breaks)){
-      breaks = generate_breaks(as.vector(mat), length(color))
-    }
-    if(!is.infinite(min(breaks))){
-      breaks = c(-Inf, breaks)
-      color = c(color[1], color)
-    }
-    if(!is.infinite(max(breaks))){
-      breaks = c(breaks, Inf)
-      color = c(color, color[length(color)])
-    }
-    non_inf_breaks = breaks[!is.infinite(breaks)]
-    if (legend & is.na2(legend_breaks)) {
-      legend = grid.pretty(range(as.vector(non_inf_breaks)))
-      names(legend) = legend
-    }
-    else if(legend & !is.na2(legend_breaks)){
-      legend = legend_breaks[legend_breaks >= min(non_inf_breaks) & legend_breaks <= max(non_inf_breaks)]
-      if(!is.na2(legend_labels)){
-        legend_labels = legend_labels[legend_breaks >= min(non_inf_breaks) & legend_breaks <= max(non_inf_breaks)]
-        names(legend) = legend_labels
-      }
-      else{
-        names(legend) = legend
-      }
-    }
-    else {
-      legend = NA
-    }
-    mat = scale_colours(mat, col = color, breaks = breaks, na_col = na_col)
-    # Preparing annotations
-    if(is.na2(annotation_col) & !is.na2(annotation)){
-      annotation_col = annotation
-    }
-    # Select only the ones present in the matrix
-    if(!is.na2(annotation_col)){
-      annotation_col = annotation_col[colnames(mat), , drop = F]
-    }
-    if(!is.na2(annotation_row)){
-      annotation_row = annotation_row[rownames(mat), , drop = F]
-    }
-    annotation = c(annotation_row, annotation_col)
-    annotation = annotation[unlist(lapply(annotation, function(x) !is.na2(x)))]
-    if(length(annotation) != 0){
-      annotation_colors = generate_annotation_colours(annotation, annotation_colors, drop = drop_levels)
-    }
-    else{
-      annotation_colors = NA
-    }
-    if(!show_rownames){
-      labels_row = NULL
-    }
-    if(!show_colnames){
-      labels_col = NULL
-    }
-    # Set colname rotating parameters
-    angle_col = as.character(angle_col)
-    angle_col = match.arg(angle_col)
-    if(angle_col == "0"){
-      angle_col = 0
-      hjust_col = 0.5
-      vjust_col = 1
-    }
-    if(angle_col == "45"){
-      angle_col = 45
-      hjust_col = 1
-      vjust_col = 1
-    }
-    if(angle_col == "90"){
-      angle_col = 90
-      hjust_col = 1
-      vjust_col = 0.5
-    }
-    if(angle_col == "270"){
-      angle_col = 270
-      hjust_col = 0
-      vjust_col = 0.5
-    }
-    if(angle_col == "315"){
-      angle_col = 315
-      hjust_col = 0
-      vjust_col = 1
-    }
-    # Draw heatmap
-    pdf(file = NULL)
-    gt = heatmap_motor(mat,
-                       border_color = border_color,
-                       cellwidth = cellwidth,
-                       cellheight = cellheight,
-                       treeheight_col = treeheight_col,
-                       treeheight_row = treeheight_row,
-                       tree_col = tree_col,
-                       tree_row = tree_row,
-                       filename = filename,
-                       width = width,
-                       height = height,
-                       breaks = breaks,
-                       color = color,
-                       legend = legend,
-                       annotation_row = annotation_row,
-                       annotation_col = annotation_col,
-                       annotation_colors = annotation_colors,
-                       annotation_legend = annotation_legend,
-                       annotation_names_row = annotation_names_row,
-                       annotation_names_col = annotation_names_col,
-                       main = main,
-                       fontsize = fontsize,
-                       fontsize_row = fontsize_row,
-                       fontsize_col = fontsize_col,
-                       hjust_col = hjust_col,
-                       vjust_col = vjust_col,
-                       angle_col = angle_col,
-                       fmat = fmat,
-                       fontsize_number = fontsize_number,
-                       number_color = number_color,
-                       gaps_row = gaps_row,
-                       gaps_col = gaps_col,
-                       labels_row = labels_row,
-                       labels_col = labels_col,
-                       ...)
-    dev.off()
-    if(is.na(filename) & !silent){
-      grid.newpage()
-      grid.draw(gt)
-    }
-    invisible(structure(list(tree_row = tree_row, tree_col = tree_col, kmeans = km, gtable = gt), class = "pheatmap"))
-  }
-
-# Set the environment for pheatmap_seed to that of pheatmap  
-environment(pheatmap_seed) = environment(pheatmap)
 
 #####    Run settings    #####
 if("Run settings" %in% section){
@@ -841,6 +442,407 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
     save.image(paste0(Experiment_name,".RData"))
 }
   }
+
+##### Load custom functions #####
+eval(parse(text = getURL("https://raw.githubusercontent.com/kevinblighe/clusGapKB/master/clusGapKB.R", ssl.verifypeer = FALSE)))
+
+# PCA plot function for PC2 and PC3
+plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData = FALSE){
+  rv = rowVars(assay(object))
+  if(length(rv) < 3){
+    cat("#### Not enough genes to create PCA for: ",intgroup," ####\n")
+    return(NULL)
+  }
+  select = order(rv, decreasing = TRUE)[seq_len(min(ntop,length(rv)))]
+  pca = prcomp(t(assay(object)[select, ]))
+  percentVar = pca$sdev^2/sum(pca$sdev^2)
+  if (!all(intgroup %in% names(colData(object)))){
+    stop("the argument 'intgroup' should specify columns of colData(dds)")
+  }
+  intgroup.df = as.data.frame(colData(object)[, intgroup,drop = FALSE])
+  group = if (length(intgroup) > 1){
+    factor(apply(intgroup.df, 1, paste, collapse = ":"))
+  }else{
+    colData(object)[[intgroup]]
+  }
+  d = data.frame(PC1 = pca$x[, 1],PC2 = pca$x[, 2], PC3 = pca$x[, 3], group = group,intgroup.df, name = colnames(object))
+  if (returnData){
+    attr(d, "percentVar") = percentVar[1:3]
+    return(d)
+  }
+  ggplot(data = d, aes_string(x = "PC2", y = "PC3", color = "group")) + geom_point(size = 3) + xlab(paste0("PC2: ", round(percentVar[2]*100), "% variance")) + ylab(paste0("PC3: ", round(percentVar[3]*100), "% variance")) + coord_fixed()
+}
+
+# 3D PCA plot function
+PCA_3D = function(PC_factor,pca_type){
+  multi_done = list()
+  for(run_factor in PC_factor){
+    colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Single_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))]
+    # Single factor 3D PCAs
+    if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
+      dir.create("animation_merge",showWarnings = FALSE)
+      for(degree in 1:360) {
+        open3d()
+        par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
+        plot3d(x = PCA_data[["Single_factor"]][[run_factor]][["PC1"]],
+               y = PCA_data[["Single_factor"]][[run_factor]][["PC2"]],
+               z = PCA_data[["Single_factor"]][[run_factor]][["PC3"]],
+               col = colors_3d,
+               size = 2,
+               xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[1],"% variance"),
+               ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[2],"% variance"),
+               zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[3],"% variance"),
+               type = "s") +
+          legend3d("topright", legend = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
+        view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
+        rgl.snapshot(filename=paste("animation_merge/frame-",
+                                    sprintf("%03d", degree), ".png", sep=""))
+        while(length(rgl.dev.list()) != 0){rgl.close()}
+        cat("\rRunning single factor ",run_factor," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+      }
+      cat("\nRunning ffmpeg...\n")
+      try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",run_factor,".mp4")))
+      unlink("animation_merge",recursive = TRUE)
+    }
+    
+    # Multiple factor 3D PCAs
+    if("Multiple_factor" %in% names(PCA_data) & grepl(pattern = 2,pca_type)){
+      for(PCA_comp in names(PCA_data[["Multiple_factor"]])){
+        colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]],table = unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]))]
+        if(run_factor %in% attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor") & !any(sapply(multi_done,function(x){all(x==attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor"))}))){
+          multi_done = append(multi_done,values = list(attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor")))
+          dir.create("animation_merge",showWarnings = FALSE)
+          for(degree in 1:360) {
+            open3d()
+            par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
+            plot3d(x = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC1"]],
+                   y = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC2"]],
+                   z = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC3"]],
+                   col = colors_3d,
+                   size = 2,
+                   xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[1],"% variance"),
+                   ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[2],"% variance"),
+                   zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[3],"% variance"),
+                   type = "s") +
+              legend3d("topright", legend = unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
+            view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
+            rgl.snapshot(filename=paste("animation_merge/frame-",
+                                        sprintf("%03d", degree), ".png", sep=""))
+            while(length(rgl.dev.list()) != 0){rgl.close()}
+            cat("\rRunning multiple factor ",PCA_comp," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+          }
+          cat("\nRunning ffmpeg...\n")
+          try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",PCA_comp,".mp4")))
+          unlink("animation_merge",recursive = TRUE)
+        }
+      }
+    }
+    
+    # DEGs 3D PCAs
+    if("DEGs" %in% names(PCA_data) & grepl(pattern = 3,pca_type)){
+      if(run_factor %in% names(PCA_data[["DEGs"]])){
+        for(PCA_comp in names(PCA_data[["DEGs"]][[run_factor]])){
+          colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]],table = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))]
+          dir.create("animation_merge",showWarnings = FALSE)
+          for(degree in 1:360) {
+            open3d()
+            par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
+            plot3d(x = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC1"]],
+                   y = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC2"]],
+                   z = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC3"]],
+                   col = colors_3d,
+                   size = 2,
+                   xlab = paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[1],"% variance"),
+                   ylab = paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[2],"% variance"),
+                   zlab = paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[3],"% variance"),
+                   type = "s") +
+              legend3d("topright", legend = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
+            view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
+            rgl.snapshot(filename=paste("animation_merge/frame-",
+                                        sprintf("%03d", degree), ".png", sep=""))
+            while(length(rgl.dev.list()) != 0){rgl.close()}
+            cat("\rRunning DEGs ",PCA_comp," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+          }
+          cat("\nRunning ffmpeg...\n")
+          try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_DEGs_",rlog_vst,"_",genes_isoforms,"_",PCA_comp,".mp4")))
+          unlink("animation_merge",recursive = TRUE)
+        }
+      }
+    }
+  }
+}
+
+# Kmeans pheatmap function for seed setting
+pheatmap_seed = function(mat,
+                         color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+                         kmeans_k = NA,
+                         breaks = NA,
+                         border_color = "grey60",
+                         cellwidth = NA,
+                         cellheight = NA,
+                         scale = "none",
+                         cluster_rows = TRUE,
+                         cluster_cols = TRUE,
+                         clustering_distance_rows = "euclidean",
+                         clustering_distance_cols = "euclidean",
+                         clustering_method = "complete",
+                         clustering_callback = identity2,
+                         cutree_rows = NA,
+                         cutree_cols = NA,
+                         treeheight_row = ifelse((class(cluster_rows) == "hclust") || cluster_rows, 50, 0), treeheight_col = ifelse((class(cluster_cols) == "hclust") || cluster_cols, 50, 0),
+                         legend = TRUE,
+                         legend_breaks = NA,
+                         legend_labels = NA,
+                         annotation_row = NA,
+                         annotation_col = NA,
+                         annotation = NA,
+                         annotation_colors = NA,
+                         annotation_legend = TRUE,
+                         annotation_names_row = TRUE,
+                         annotation_names_col = TRUE,
+                         drop_levels = TRUE,
+                         show_rownames = T,
+                         show_colnames = T,
+                         main = NA,
+                         fontsize = 10,
+                         fontsize_row = fontsize,
+                         fontsize_col = fontsize,
+                         angle_col = c("270", "0", "45", "90", "315"),
+                         display_numbers = F,
+                         number_format = "%.2f",
+                         number_color = "grey30",
+                         fontsize_number = 0.8 * fontsize,
+                         gaps_row = NULL,
+                         gaps_col = NULL,
+                         labels_row = NULL,
+                         labels_col = NULL,
+                         filename = NA,
+                         width = NA,
+                         height = NA,
+                         silent = FALSE,
+                         na_col = "#DDDDDD",
+                         seed_input = 123, ...){
+  # Set labels
+  if(is.null(labels_row)){
+    labels_row = rownames(mat)
+  }
+  if(is.null(labels_col)){
+    labels_col = colnames(mat)
+  }
+  # Preprocess matrix
+  mat = as.matrix(mat)
+  if(scale != "none"){
+    mat = scale_mat(mat, scale)
+    if(is.na2(breaks)){
+      breaks = generate_breaks(mat, length(color), center = T)
+    }
+  }
+  # Kmeans
+  if(!is.na(kmeans_k)){
+    # Cluster data
+    set.seed(seed_input)
+    km = kmeans(mat, kmeans_k, iter.max = 100)
+    mat = km$centers
+    # Compose rownames
+    t = table(km$cluster)
+    labels_row = sprintf("Cluster: %s Size: %d", names(t), t)
+  }
+  else{
+    km = NA
+  }
+  # Format numbers to be displayed in cells
+  if(is.matrix(display_numbers) | is.data.frame(display_numbers)){
+    if(nrow(display_numbers) != nrow(mat) | ncol(display_numbers) != ncol(mat)){
+      stop("If display_numbers provided as matrix, its dimensions have to match with mat")
+    }
+    display_numbers = as.matrix(display_numbers)
+    fmat = matrix(as.character(display_numbers), nrow = nrow(display_numbers), ncol = ncol(display_numbers))
+    fmat_draw = TRUE
+  }else{
+    if(display_numbers){
+      fmat = matrix(sprintf(number_format, mat), nrow = nrow(mat), ncol = ncol(mat))
+      fmat_draw = TRUE
+    }else{
+      fmat = matrix(NA, nrow = nrow(mat), ncol = ncol(mat))
+      fmat_draw = FALSE
+    }
+  }
+  # Do clustering
+  if((class(cluster_rows) == "hclust") || cluster_rows){
+    if(class(cluster_rows) == "hclust"){
+      tree_row = cluster_rows
+    } else {
+      tree_row = cluster_mat(mat, distance = clustering_distance_rows, method = clustering_method)
+      tree_row = clustering_callback(tree_row, mat)
+    }
+    mat = mat[tree_row$order, , drop = FALSE]
+    fmat = fmat[tree_row$order, , drop = FALSE]
+    labels_row = labels_row[tree_row$order]
+    if(!is.na(cutree_rows)){
+      gaps_row = find_gaps(tree_row, cutree_rows)
+    }else{
+      gaps_row = NULL
+    }
+  }else{
+    tree_row = NA
+    treeheight_row = 0
+  }
+  if((class(cluster_cols) == "hclust") || cluster_cols){
+    if(class(cluster_cols) == "hclust"){
+      tree_col = cluster_cols
+    } else {
+      tree_col = cluster_mat(t(mat), distance = clustering_distance_cols, method = clustering_method)
+      tree_col = clustering_callback(tree_col, t(mat))
+    }
+    mat = mat[, tree_col$order, drop = FALSE]
+    fmat = fmat[, tree_col$order, drop = FALSE]
+    labels_col = labels_col[tree_col$order]
+    if(!is.na(cutree_cols)){
+      gaps_col = find_gaps(tree_col, cutree_cols)
+    }else{
+      gaps_col = NULL
+    }
+  }else{
+    tree_col = NA
+    treeheight_col = 0
+  }
+  attr(fmat, "draw") = fmat_draw
+  # Colors and scales
+  if(!is.na2(legend_breaks) & !is.na2(legend_labels)){
+    if(length(legend_breaks) != length(legend_labels)){
+      stop("Lengths of legend_breaks and legend_labels must be the same")
+    }
+  }
+  if(is.na2(breaks)){
+    breaks = generate_breaks(as.vector(mat), length(color))
+  }
+  if(!is.infinite(min(breaks))){
+    breaks = c(-Inf, breaks)
+    color = c(color[1], color)
+  }
+  if(!is.infinite(max(breaks))){
+    breaks = c(breaks, Inf)
+    color = c(color, color[length(color)])
+  }
+  non_inf_breaks = breaks[!is.infinite(breaks)]
+  if (legend & is.na2(legend_breaks)) {
+    legend = grid.pretty(range(as.vector(non_inf_breaks)))
+    names(legend) = legend
+  }
+  else if(legend & !is.na2(legend_breaks)){
+    legend = legend_breaks[legend_breaks >= min(non_inf_breaks) & legend_breaks <= max(non_inf_breaks)]
+    if(!is.na2(legend_labels)){
+      legend_labels = legend_labels[legend_breaks >= min(non_inf_breaks) & legend_breaks <= max(non_inf_breaks)]
+      names(legend) = legend_labels
+    }
+    else{
+      names(legend) = legend
+    }
+  }
+  else {
+    legend = NA
+  }
+  mat = scale_colours(mat, col = color, breaks = breaks, na_col = na_col)
+  # Preparing annotations
+  if(is.na2(annotation_col) & !is.na2(annotation)){
+    annotation_col = annotation
+  }
+  # Select only the ones present in the matrix
+  if(!is.na2(annotation_col)){
+    annotation_col = annotation_col[colnames(mat), , drop = F]
+  }
+  if(!is.na2(annotation_row)){
+    annotation_row = annotation_row[rownames(mat), , drop = F]
+  }
+  annotation = c(annotation_row, annotation_col)
+  annotation = annotation[unlist(lapply(annotation, function(x) !is.na2(x)))]
+  if(length(annotation) != 0){
+    annotation_colors = generate_annotation_colours(annotation, annotation_colors, drop = drop_levels)
+  }
+  else{
+    annotation_colors = NA
+  }
+  if(!show_rownames){
+    labels_row = NULL
+  }
+  if(!show_colnames){
+    labels_col = NULL
+  }
+  # Set colname rotating parameters
+  angle_col = as.character(angle_col)
+  angle_col = match.arg(angle_col)
+  if(angle_col == "0"){
+    angle_col = 0
+    hjust_col = 0.5
+    vjust_col = 1
+  }
+  if(angle_col == "45"){
+    angle_col = 45
+    hjust_col = 1
+    vjust_col = 1
+  }
+  if(angle_col == "90"){
+    angle_col = 90
+    hjust_col = 1
+    vjust_col = 0.5
+  }
+  if(angle_col == "270"){
+    angle_col = 270
+    hjust_col = 0
+    vjust_col = 0.5
+  }
+  if(angle_col == "315"){
+    angle_col = 315
+    hjust_col = 0
+    vjust_col = 1
+  }
+  # Draw heatmap
+  pdf(file = NULL)
+  gt = heatmap_motor(mat,
+                     border_color = border_color,
+                     cellwidth = cellwidth,
+                     cellheight = cellheight,
+                     treeheight_col = treeheight_col,
+                     treeheight_row = treeheight_row,
+                     tree_col = tree_col,
+                     tree_row = tree_row,
+                     filename = filename,
+                     width = width,
+                     height = height,
+                     breaks = breaks,
+                     color = color,
+                     legend = legend,
+                     annotation_row = annotation_row,
+                     annotation_col = annotation_col,
+                     annotation_colors = annotation_colors,
+                     annotation_legend = annotation_legend,
+                     annotation_names_row = annotation_names_row,
+                     annotation_names_col = annotation_names_col,
+                     main = main,
+                     fontsize = fontsize,
+                     fontsize_row = fontsize_row,
+                     fontsize_col = fontsize_col,
+                     hjust_col = hjust_col,
+                     vjust_col = vjust_col,
+                     angle_col = angle_col,
+                     fmat = fmat,
+                     fontsize_number = fontsize_number,
+                     number_color = number_color,
+                     gaps_row = gaps_row,
+                     gaps_col = gaps_col,
+                     labels_row = labels_row,
+                     labels_col = labels_col,
+                     ...)
+  dev.off()
+  if(is.na(filename) & !silent){
+    grid.newpage()
+    grid.draw(gt)
+  }
+  invisible(structure(list(tree_row = tree_row, tree_col = tree_col, kmeans = km, gtable = gt), class = "pheatmap"))
+}
+
+# Set the environment for pheatmap_seed to that of pheatmap  
+environment(pheatmap_seed) = environment(pheatmap)
 
 #####    Start run    #####
   if("DESeq2" %in% section | "LRT" %in% section | "LRT-DESeq" %in% section){
