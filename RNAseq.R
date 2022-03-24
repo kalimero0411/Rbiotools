@@ -234,6 +234,10 @@ eval(parse(text = getURL("https://raw.githubusercontent.com/kevinblighe/clusGapK
 # PCA plot function for PC2 and PC3
 plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData = FALSE){
   rv = rowVars(assay(object))
+  if(length(rv) < 3){
+    cat("#### Not enough genes to create PCA for: ",intgroup," ####\n")
+    return(NULL)
+  }
   select = order(rv, decreasing = TRUE)[seq_len(min(ntop,length(rv)))]
   pca = prcomp(t(assay(object)[select, ]))
   percentVar = pca$sdev^2/sum(pca$sdev^2)
@@ -1074,6 +1078,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   cat("#####    Creating PCA and factor heatmap plots    ######\n")
   for(i in factors){
       PCA_data[["Single_factor"]][[i]] = plotPCA_PC123(object = data_set_transform,intgroup=i,returnData = TRUE)
+      if(!is.null(PCA_data[["Single_factor"]][[i]])){
       png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,".png"),width = 1920,height = 1080,units = "px")
       plot_temp = ggplot(PCA_data[["Single_factor"]][[i]],
                      aes(PC1, PC2, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["name"]])) +
@@ -1093,6 +1098,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
       
+      
       png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_PC2.png"),width = 1920,height = 1080,units = "px")
       plot_temp = ggplot(PCA_data[["Single_factor"]][[i]],
                      aes(PC2, PC3, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["name"]])) +
@@ -1111,6 +1117,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       }
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
+      }
   }
   
   #####   Multi-factor PCA and PCoA   #####
@@ -1118,6 +1125,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   for(i in factors[-length(factors)]){
   for(j in factors[(which(factors %in% i)+1):length(factors)]){
     PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]] = plotPCA_PC123(object = data_set_transform,intgroup=c(i,j),returnData = TRUE)
+    if(!is.null(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]])){
     attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], which = "factor") = c(i,j)
     png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j,".png"),width = 1920,height = 1080,units = "px")
     plot_temp = ggplot(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]],
@@ -1158,6 +1166,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
     }
     print(plot_temp)
     while (!is.null(dev.list())){dev.off()}
+    }
     
     data_set_deseq_pcoa = pcoa(vegdist(t(data_set_matrix),method="manhattan")/1000)
     pcoa_scores = data_set_deseq_pcoa$vectors
@@ -1406,6 +1415,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       ######       PCA DEGs       ######
       if(!is.null(attr(deseq_results[[compare_var]],which = "factor")) & length(deseq_sig) > 0){
       PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]] = plotPCA_PC123(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),returnData = TRUE)
+      if(!is.null(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]])){
       png(filename = paste0(rlog_vst,"/PCA/PCA_DEGs_",rlog_vst,"_",genes_isoforms,"_",compare_var,".png"),width = 1920,height = 1080,units = "px")
       plot_temp = ggplot(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]],
                          aes(PC1, PC2, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["name"]])) +
@@ -1444,6 +1454,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       }
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
+      }
       }
       
       #######     goseq GO annotation      #########
