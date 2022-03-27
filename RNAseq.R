@@ -126,10 +126,6 @@ if(!interactive()){
   }
   if("GO_file" %in% names(args)){
     GO_file = args[["GO_file"]]
-    if(!exists("GO_terms")){
-      cat("##### Downloading GO terms #####\n")
-      GO_terms = c(as.list(GO.db::GOTERM),as.list(GO.db::GOSYNONYM))
-    }
   }
   if("remove_isoforms" %in% names(args)){
     remove_isoforms = TRUE
@@ -406,6 +402,15 @@ if(all(!"Optimize K-means" %in% section,"K-means clustering" %in% section)){
   }
 
 if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotations?",graphics = TRUE) == "Yes"){
+  GO_file = rchoose.files(caption = "Choose GO annotation file:")
+}
+    save.image(paste0(Experiment_name,".RData"))
+}
+  }
+
+if(any(!section %in% "Run settings")){
+##### Load GO annotation #####
+if(exists("GO_file")){
   cat("##### Downloading GO terms #####\n")
   GO_terms = c(as.list(GO.db::GOTERM),as.list(GO.db::GOSYNONYM))
   delim_fun = function(GO_file){
@@ -418,7 +423,7 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
       return(split(unlist(geneGO_temp, use.names = FALSE), names(geneGO_temp)))
     }
   }
-  geneGO = delim_fun(GO_file = rchoose.files(caption = "Choose GO annotation file:"))
+  geneGO = delim_fun(GO_file)
   GO_table = data.frame(Gene = rep(names(lengths(geneGO)),lengths(geneGO)),GO_ID = unlist(geneGO,use.names = FALSE))
   # GO_table = data.frame(Gene = unique(GO_table$V1), GO_ID = unlist(bplapply(unique(GO_table$V1),function(x){
   #   return(paste(GO_table[GO_table$V1 %in% x,"V2"],collapse = ";"))
@@ -439,9 +444,6 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
   write.table(x = GO_table,file = "GO_table_info.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
   write.table(x = GO_table[,c("Gene","GO_ID")],file = "GO_table.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
 }
-    save.image(paste0(Experiment_name,".RData"))
-}
-  }
 
 ##### Load custom functions #####
 eval(parse(text = getURL("https://raw.githubusercontent.com/kevinblighe/clusGapKB/master/clusGapKB.R", ssl.verifypeer = FALSE)))
@@ -843,7 +845,7 @@ pheatmap_seed = function(mat,
 
 # Set the environment for pheatmap_seed to that of pheatmap  
 environment(pheatmap_seed) = environment(pheatmap)
-
+}
 #####    Start run    #####
   if("DESeq2" %in% section | "LRT" %in% section | "LRT-DESeq" %in% section){
   cat("#####    Importing data    ######\n", sep = "")
