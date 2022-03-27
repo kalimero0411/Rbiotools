@@ -1008,8 +1008,6 @@ environment(pheatmap_seed) = environment(pheatmap)
     dir.create(rlog_vst,showWarnings = FALSE)
     dir.create(paste0(rlog_vst,"/Heatmaps"),showWarnings = FALSE)
     data_set_matrix = assay(data_set_transform)
-    cat("Removing ",sum(rowSums(data_set_matrix) == 0)," genes with no expression\n",sep = "")
-    data_set_matrix = data_set_matrix[rowSums(data_set_matrix) != 0,]
     # if(nrow(data_set_matrix) > 65536){
     #   cat("Too many genes. Removing lowest ",nrow(data_set_matrix) - 65536," expressed genes\n",sep = "")
     #   data_set_matrix = data_set_matrix[names(head(sort(abs(rowSums(data_set_matrix)),decreasing = TRUE),n = 65536)),]
