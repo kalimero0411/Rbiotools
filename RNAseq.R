@@ -71,7 +71,7 @@ if(!interactive()){
     prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
     stop(paste0("Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
     if(sum(as.numeric(unlist(strsplit(args[["process"]],split = ","))) %in% c(2,3,4)) > 1){
-      stop(paste0("Error: Select only one DESeq2 analysis (2,3 or 4)"),call. = TRUE)
+      stop(paste0("Select only one DESeq2 analysis (2,3 or 4)"),call. = TRUE)
     }
   }
   cat("Loading RData file: ",args[["rdata"]],"\n",sep = "")
@@ -1588,10 +1588,10 @@ environment(pheatmap_seed) = environment(pheatmap)
           if(sum(names(geneGO) %in% DE_genes_sig) > 0){
             geneList = factor(as.integer(names(geneGO) %in% DE_genes_sig),levels = c(0,1))
             names(geneList) = names(geneGO)
-            for(i in c("BP","MF","CC")){
+            for(ontology in c("BP","MF","CC")){
               sampleGOdata = new("topGOdata",
                                  description = "Simple session",
-                                 ontology = i,
+                                 ontology = ontology,
                                  allGenes = geneList,
                                  annot = annFUN.gene2GO,
                                  gene2GO = geneGO)
@@ -1599,18 +1599,39 @@ environment(pheatmap_seed) = environment(pheatmap)
               printGraph(object = sampleGOdata,
                          result = enrich_result,
                          firstSigNodes = 10,
-                         fn.prefix = paste0(rlog_vst,"/top_GO_annotation/topGO_graphs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",i),
+                         fn.prefix = paste0(rlog_vst,"/top_GO_annotation/topGO_graphs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology),
                          useInfo = "all",
                          pdfSW = FALSE)
               
-              GO_DEGs = GO_terms[names(enrich_result@score[enrich_result@score <= alpha])]
-              if(length(GO_DEGs) > 0){
-              GO_DEGs_df = as.data.frame(matrix(unlist(lapply(names(GO_DEGs),function(x){
+              if(sum(enrich_result@score <= alpha) > 0){
+              GO_DEGs_df = as.data.frame(matrix(unlist(lapply(names(enrich_result@score[enrich_result@score <= alpha]),function(x){
                 return(c(attr(GO_terms[[x]],which = "Term",exact = TRUE),
                          attr(GO_terms[[x]],which = "Definition",exact = TRUE)))
               })),ncol = 2,byrow = TRUE),row.names = names(GO_DEGs))
               colnames(GO_DEGs_df) = c("Term","Definition")
-              write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",i,"_sig.txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
+              write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
+              
+              if("Wordcloud" %in% section){
+              DEG_table = table(GO_DEGs_df[,"Term"])
+              DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
+              cat(format(round((3*match(k,if(exists("k_clusters")){c("all",1:k_clusters)}else{"all"}))/(3*if(exists("k_clusters")){k_clusters + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \r",sep = "")
+              if(nrow(DEG_table) > 0){
+                png(filename = paste0(rlog_vst,"/Wordcloud/Enriched_Wordcloud_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
+                tryCatch(expr = {
+                  wordcloud(words = names(DEG_table),
+                            freq = DEG_table,
+                            min.freq=1,
+                            max.words=100,
+                            random.order=FALSE,
+                            rot.per=0.35,
+                            use.r.layout=FALSE,
+                            colors=brewer.pal(8, "Dark2"),
+                            scale=c(5,0.4)
+                  )
+                },error = function(e) e)
+                while (!is.null(dev.list())){dev.off()}
+              }
+              }
               }
             }
           }
