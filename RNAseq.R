@@ -44,20 +44,19 @@ if(!interactive()){
                            "","1 = Run settings (interactive only)",
                            "","2 = DESeq2",
                            "","3 = LRT",
-                           "","4 = LRT-DESeq",
-                           "","5 = Transformation (not parallelized)",
-                           "","6 = Heatmaps",
-                           "","7 = Dispersion estimates, PCAs and PCoAs",
-                           "","8 = Optimize K-means",
-                           "","9 = K-means clustering",
-                           "","10 = Hierarchial clustering",
-                           "","11 = MA-plot",
-                           "","12 = DEG heatmap",
-                           "","13 = goseq GO analysis",
-                           "","14 = topGO analysis",
-                           "","15 = Word cloud",
-                           "","16 = Venn diagram",
-                           "","17 = Variable heatmap and report",
+                           "","4 = Transformation (not parallelized)",
+                           "","5 = Heatmaps",
+                           "","6 = Dispersion estimates, PCAs and PCoAs",
+                           "","7 = Optimize K-means",
+                           "","8 = K-means clustering",
+                           "","9 = Hierarchial clustering",
+                           "","10 = MA-plot",
+                           "","11 = DEG heatmap",
+                           "","12 = goseq GO analysis",
+                           "","13 = topGO analysis",
+                           "","14 = Word cloud",
+                           "","15 = Venn diagram",
+                           "","16 = Variable heatmap and report",
                            "","(e.g. 2,5,6,7,8,9,10,11,12)",
                            "--remove_isoforms","Remove isoform suffix from gene IDs",
                            "--k","Number of clusters for K-means clustering",
@@ -99,7 +98,6 @@ if(!interactive()){
   section = c("Run settings",
               "DESeq2",
               "LRT",
-              "LRT-DESeq",
               "Transformation",
               "Heatmaps",
               "Dispersion estimates, PCAs and PCoAs",
@@ -114,7 +112,6 @@ if(!interactive()){
               "Venn diagram",
               "Variable heatmap and report")
   section = section[as.numeric(unlist(strsplit(args[["process"]],split = ",")))]
-  LRT_DESeq2 = "LRT-DESeq" %in% section
   if(!"Optimize K-means" %in% section & "K-means clustering" %in% section){
     if(!"k" %in% names(args)){
       stop(paste0("Error: Please specify the number of k clusters with --k OR K cluster optimization with --process 8"),call. = TRUE)
@@ -208,7 +205,6 @@ setwd(paste0(wd,"/",Experiment_name))
 section = select.list(choices = c("Run settings",
                                   "DESeq2",
                                   "LRT",
-                                  "LRT-DESeq",
                                   "Transformation",
                                   "Heatmaps",
                                   "Dispersion estimates, PCAs and PCoAs",
@@ -271,12 +267,6 @@ if("Run settings" %in% section){
     count_column = as.numeric(eval(expr = parse(text = readline(prompt = "Select counts column (set range e.g. 4:7): "))))
   }
   
-if("LRT-DESeq" %in% section){
-  LRT_DESeq2 = TRUE
-}else{
-  LRT_DESeq2 = FALSE
-}
-
   # Create experimental design
   cat("Text file: column 1 sample names with title, column 2 file path with title, and the first row of the rest of the columns as factor names\n")
   meta_input = select.list(choices = c("Text file","Manual input"),multiple = FALSE,title = "Input method",graphics = TRUE)
@@ -847,7 +837,7 @@ pheatmap_seed = function(mat,
 environment(pheatmap_seed) = environment(pheatmap)
 }
 #####    Start run    #####
-  if("DESeq2" %in% section | "LRT" %in% section | "LRT-DESeq" %in% section){
+  if("DESeq2" %in% section | "LRT" %in% section){
   cat("#####    Importing data    ######\n", sep = "")
     if(exists("input_path")){
       file_names = file.path(input_path,basename(file_names))
@@ -967,20 +957,6 @@ environment(pheatmap_seed) = environment(pheatmap)
     data_set_DESeq = DESeq(data_set,test = "LRT",reduced = reduced_formula,parallel = TRUE)
     cat("LRT ",genes_isoforms," completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-  if("LRT-DESeq" %in% section){
-    time_start=Sys.time()
-    data_set_LRT = DESeq(data_set,test = "LRT",reduced = reduced_formula,parallel = TRUE)
-    data_set_LRT_results = results(data_set_LRT,parallel = TRUE)
-    data_set_LRT_results_padj = data_set_LRT_results[order(data_set_LRT_results$padj),]
-    data_set_LRT_results_padj = data_set_LRT_results_padj[!is.na(data_set_LRT_results_padj$padj),]
-    data_set_LRT_results_sig = data_set_LRT_results_padj[data_set_LRT_results_padj$padj < alpha,]
-    data_set_LRT_results_sig = data_set_LRT_results_sig[abs(data_set_LRT_results_sig$log2FoldChange) >= 1,]
-    data_set_LRT_results_sig_genes = rownames(data_set_LRT_results_sig)
-    count_table_LRT = count_table[data_set_LRT_results_sig_genes,]
-    data_set = DESeqDataSetFromMatrix(countData = count_table_LRT, colData = experimental_design, design = design_formula ,tidy = FALSE, ignoreRank = FALSE)
-    data_set_DESeq = DESeq(data_set,parallel = TRUE)
-    cat("LRT-DESeq ",genes_isoforms," completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
-  }
   
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_DESeq2_data.RData"))
   }
@@ -991,17 +967,22 @@ environment(pheatmap_seed) = environment(pheatmap)
     cat("#####    rLog transforming ",genes_isoforms," counts    ######\n", sep = "")
     time_start=Sys.time()
     data_set_transform = rlog(data_set_DESeq,blind = FALSE)
-    if(LRT_DESeq2){data_set_transform_LRT=rlog(data_set_LRT,blind = FALSE)}
     cat("rLog transforming ",genes_isoforms," counts completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
   if(rlog_vst == "VST"){
     cat("#####    VST transforming ",genes_isoforms," counts    ######\n", sep = "")
     time_start=Sys.time()
     data_set_transform = varianceStabilizingTransformation(data_set_DESeq,blind = FALSE)
-    if(LRT_DESeq2){data_set_transform_LRT = varianceStabilizingTransformation(data_set_LRT,blind = FALSE)}
     cat("VST transforming ",genes_isoforms," counts completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-  
+    wgcna_data = if(rlog_vst == "rlog"){
+      assay(varianceStabilizingTransformation(data_set_DESeq,blind = FALSE))
+      }else{
+        assay(data_set_transform)
+      }
+    saveRDS(object = experimental_design,file = paste0(Experiment_name,"_",genes_isoforms,"_","factors_for_WGCNA.rds"))
+    saveRDS(object = wgcna_data,file = paste0(Experiment_name,"_",genes_isoforms,"_","VST_for_WGCNA.rds"))
+    rm(wgcna_data)
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","transformed_data.RData"))
   }
   
@@ -1045,20 +1026,6 @@ environment(pheatmap_seed) = environment(pheatmap)
                annotation_row = gene_subset,
                annotation_col = as.data.frame(colData(data_set)),
                filename = paste0(rlog_vst,"/Heatmaps/Heatmap_gene_subset_",rlog_vst,"_",genes_isoforms,".png"),
-               annotation_colors = color_select)
-    }
-    if(LRT_DESeq2){
-      pheatmap(scale(assay(data_set_transform_LRT)),
-               show_rownames = FALSE,
-               cluster_rows = heatmap_row_clust,
-               annotation_col = as.data.frame(colData(data_set)),
-               filename = paste0(rlog_vst,"/Heatmaps/Heatmap_LRT_",rlog_vst,"_",genes_isoforms,".png"),
-               annotation_colors = color_select)
-      pheatmap(scale(assay(data_set_transform_LRT)[data_set_LRT_results_sig_genes,]),
-               show_rownames = FALSE,
-               cluster_rows = heatmap_row_clust,
-               annotation_col = as.data.frame(colData(data_set)),
-               filename = paste0(rlog_vst,"/Heatmaps/Heatmap_significant_DEGs_LRT_",rlog_vst,"_",genes_isoforms,".png"),
                annotation_colors = color_select)
     }
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))

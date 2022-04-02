@@ -24,6 +24,7 @@ if(!interactive()){
   must_args = c("wd","name","threads")
   if(!all(must_args %in% names(args)) & !any(c("rds","tsv","csv") %in% names(args))){
     help = matrix(data = c("--rds    ","RDS file path",
+                           "--factors    ","Factors for experimental design",
                            "--tsv","Data in tab-seperated format",
                            "--csv","Data in comma-seperated format",
                            "--wd","Working directory path",
@@ -72,7 +73,18 @@ if(!interactive()){
   }else{
     min_expression = 0
   }
-  
+  if("factors" %in% names(args)){
+    factors = readRDS(args[["factors"]])
+    if(!"rep_factors" %in% names(args)){
+      cat("Using first factor for replicates")
+      rep_factor = colnames(factors)[1]
+    }else{
+      rep_factors = args[["rep_factors"]]
+    }
+  }else{
+    factors = NULL
+    rep_factors = NULL
+  }
   dir.create(path = paste0(wd,"/",Experiment_name),showWarnings = FALSE)
   setwd(paste0(wd,"/",Experiment_name))
   if(sum(c("rds","tsv","csv") %in% names(args)) > 1){
@@ -145,11 +157,29 @@ if(!interactive()){
   if(data_format == "csv"){
     data = read.delim(file = file.choose(),header = TRUE,sep = ",")
   }
+  factors = readRDS(file.choose())
+  rep_factors = select.list(choices = colnames(factors),multiple = TRUE,title = "Select distinct factors for replicates")
 }
 
 enableWGCNAThreads(nThreads = threads)
 
 data = t(data[apply(data,1,max) > min_expression,])
+if(!is.null(rep_factors)){
+  experiment_reps = factor(paste(factors[,rep_factors[1]],sep = "."))
+  if(length(rep_factors) > 1){
+  for(i in 2:length(rep_factors)){
+    experiment_reps = factor(paste(experiment_reps,factors[,rep_factors[i]],sep = "."))
+  }
+  }
+}
+
+if(goodSamplesGenes(data, verbose = 0)$allOK){
+  cat("All samples and genes passed QC !\n")
+}else{
+  cat(paste0("Problematic genes: ",paste(colnames(data)[!goodSamplesGenes(data, verbose = 0)$goodGenes], collapse = ", "),"\n"))
+  cat(paste0("Problematic samples: ",paste(rownames(data)[!goodSamplesGenes(data, verbose = 0)$goodSamples],collapse = ", "),"\n"))
+  stop("Problem with the data (goodSamplesGenes failed)!", call. = TRUE)
+}
 
 if("power" %in% section){
   powers = c(c(1:10), seq(from = 12, to=40, by=2))
@@ -201,7 +231,7 @@ if("TOM" %in% names(args)){
                                 deepSplit = 2,
                                 pamRespectsDendro = FALSE,
                                 minClusterSize = minModuleSize)
-    write.table(table(dynamicMods), file = paste0("Dynamic_Modules_table_",Experiment_name,".txt"))
+    write.table(table(dynamicMods),row.names = FALSE,quote = FALSE, file = paste0("Dynamic_Modules_table_",Experiment_name,".txt"))
     
     # Plotting modules
     dynamicColors = labels2colors(dynamicMods)
@@ -273,4 +303,44 @@ if("TOM" %in% names(args)){
   }
   save(list = ls()[grep(pattern = "dissTOM|blockTOM",x = ls(),invert = TRUE)],file = paste0(Experiment_name,"_TOM.RData"))
   # save.image(paste0(Experiment_name,"_TOM.RData"))
+
+ME_rep = function(ME_data){
+  return(list(Mean = sapply(levels(experiment_reps),function(x){
+    mean(ME_data[experiment_reps %in% x])
+  }),
+  SD = sapply(levels(experiment_reps),function(x){
+    sd(ME_data[experiment_reps %in% x])
+  })))
+}
+
+ME_eigen_rep = lapply(MEList$eigengenes,ME_rep)
+ME_averageExpr_rep = lapply(MEList$averageExpr,ME_rep)
+
+# Create eigen plots
+dir.create("eigen_plots",showWarnings = FALSE)
+for(me in names(MEList$eigengenes)){
+  png(filename = paste0("eigen_plots/",me,".png"),width = 1920,height = 1080,units = "px")
+  print(ggplot(data = data.frame(Sample = names(ME_eigen_rep[[me]][["Mean"]]),Mean = ME_eigen_rep[[me]][["Mean"]]),aes(x = Sample,y = Mean,group=1)) +
+    geom_line() +
+    geom_point() +
+    geom_errorbar(aes(ymin=ME_eigen_rep[[me]][["Mean"]]-ME_eigen_rep[[me]][["SD"]],
+                    ymax=ME_eigen_rep[[me]][["Mean"]]+ME_eigen_rep[[me]][["SD"]]),
+                width=.2,
+                position=position_dodge(0.05)))
+  while (!is.null(dev.list())){dev.off()}
+}
+
+# Create Average expression plots
+dir.create("Average_Expr_plots",showWarnings = FALSE)
+for(me in names(MEList$averageExpr)){
+  png(filename = paste0("Average_Expr_plots/",me,".png"),width = 1920,height = 1080,units = "px")
+  print(ggplot(data = data.frame(Sample = names(ME_averageExpr_rep[[me]][["Mean"]]),Mean = ME_averageExpr_rep[[me]][["Mean"]]),aes(x = Sample,y = Mean,group=1)) +
+          geom_line() +
+          geom_point() +
+          geom_errorbar(aes(ymin=ME_averageExpr_rep[[me]][["Mean"]]-ME_averageExpr_rep[[me]][["SD"]],
+                            ymax=ME_averageExpr_rep[[me]][["Mean"]]+ME_averageExpr_rep[[me]][["SD"]]),
+                        width=.2,
+                        position=position_dodge(0.05)))
+  while (!is.null(dev.list())){dev.off()}
+}
 }
