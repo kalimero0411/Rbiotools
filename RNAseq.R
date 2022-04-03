@@ -1574,7 +1574,7 @@ environment(pheatmap_seed) = environment(pheatmap)
               GO_DEGs_df = as.data.frame(matrix(unlist(lapply(names(enrich_result@score[enrich_result@score <= alpha]),function(x){
                 return(c(attr(GO_terms[[x]],which = "Term",exact = TRUE),
                          attr(GO_terms[[x]],which = "Definition",exact = TRUE)))
-              })),ncol = 2,byrow = TRUE),row.names = names(GO_DEGs))
+              })),ncol = 2,byrow = TRUE),row.names = names(names(enrich_result@score[enrich_result@score <= alpha])))
               colnames(GO_DEGs_df) = c("Term","Definition")
               write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
               
