@@ -1633,7 +1633,7 @@ environment(pheatmap_seed) = environment(pheatmap)
           DEG_table = table(DEG_table[DEG_table[["Ontology"]] == ontology,"Term"])
           DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
           cat(format(round((3*match(k,if(exists("k_clusters")){c("all",1:k_clusters)}else{"all"}))/(3*if(exists("k_clusters")){k_clusters + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \r",sep = "")
-          if(nrow(DEG_table) > 0){
+          if(length(DEG_table) > 0){
             png(filename = paste0(rlog_vst,"/Wordcloud/Wordcloud_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
             tryCatch(expr = {
               wordcloud(words = names(DEG_table),
