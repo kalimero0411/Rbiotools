@@ -1579,10 +1579,11 @@ environment(pheatmap_seed) = environment(pheatmap)
               write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
               
               if("Wordcloud" %in% section){
+              cat("Creating enriched DEG Wordclouds...\n",sep = "")
               DEG_table = table(GO_DEGs_df[,"Term"])
-              DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
+              DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function|*",x = names(DEG_table),invert = TRUE)]
               cat(format(round((3*match(k,if(exists("k_clusters")){c("all",1:k_clusters)}else{"all"}))/(3*if(exists("k_clusters")){k_clusters + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \r",sep = "")
-              if(nrow(DEG_table) > 0){
+              if(length(DEG_table) > 0){
                 png(filename = paste0(rlog_vst,"/Wordcloud/Enriched_Wordcloud_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
                 tryCatch(expr = {
                   wordcloud(words = names(DEG_table),
@@ -1610,7 +1611,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       ##### Create Wordcloud #####
       if("Wordcloud" %in% section){
         dir.create(paste0(rlog_vst,"/Wordcloud"),showWarnings = FALSE)
-        cat("Creating Wordclouds...\n",sep = "")
+        cat("Creating DEG Wordclouds...\n",sep = "")
         for(k in if(exists("k_clusters")){
           c("all",1:k_clusters)
         }else{
