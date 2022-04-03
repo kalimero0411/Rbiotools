@@ -30,8 +30,7 @@ if(!interactive()){
                            "--wd","Working directory path",
                            "--name","Experiment name",
                            "--power","Scale Free Topology Model Fit",
-                           "--TOM","Create Topology overlap matrix (TOM)",
-                           "--sp","sft value for TOM",
+                           "--TOM","Specify sft value and create Topology overlap matrix (TOM)",
                            "--blockwise","Perform blockwise calculation for TOM",
                            "--minmod","Minimum module size",
                            "--maxblock","Maximum block size (only used in blockwise)",
@@ -55,7 +54,7 @@ if(!interactive()){
     section = c(section,"power")
   }
   if("TOM" %in% names(args)){
-    softPower = as.numeric(args[["sp"]])
+    softPower = as.numeric(args[["TOM"]])
     section = c(section,"TOM")
   }
   if("minmod" %in% names(args)){
@@ -76,8 +75,8 @@ if(!interactive()){
   if("factors" %in% names(args)){
     factors = readRDS(args[["factors"]])
     if(!"rep_factors" %in% names(args)){
-      cat("Using first factor for replicates")
-      rep_factor = colnames(factors)[1]
+      cat("Using first factor for replicates\n")
+      rep_factors = colnames(factors)[1]
     }else{
       rep_factors = args[["rep_factors"]]
     }
