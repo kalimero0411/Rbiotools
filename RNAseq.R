@@ -1311,7 +1311,8 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
   
   ## Interactions
-  for(i in grep(pattern = "[.]",resultsNames(data_set_DESeq),value = TRUE)){
+  if(length(grep(pattern = ":",design_formula))){
+  for(i in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
     cat("#####    Getting results for interaction: ",i,"   ######\n",sep = "")
     temp_results = results(data_set_DESeq, name = i,parallel = TRUE)
     sink(file = paste0(genes_isoforms,"_summary.txt"),append = TRUE)
@@ -1320,6 +1321,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     sink()
     deseq_results[[i]] = as.data.frame(temp_results)
     rm(temp_results)
+  }
   }
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
   
@@ -1335,7 +1337,6 @@ environment(pheatmap_seed) = environment(pheatmap)
       write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
       
       #####    Create count matrix heat map    ######
-      cat("#####    Creating count matrix heat map    ######\n")
       deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
       deseq_sig = rownames(deseq_results_sig[[compare_var]])
       DE_genes_sig = deseq_sig
@@ -1361,6 +1362,7 @@ environment(pheatmap_seed) = environment(pheatmap)
         }
       }
       if("DEG heatmap" %in% section & length(deseq_sig) > 0){
+      cat("#####    Creating DEG count matrix heat map    ######\n")
       pheatmap(data_set_matrix_scaled[deseq_sig,,drop = FALSE],
                show_rownames = FALSE,
                cluster_rows = heatmap_row_clust,
@@ -1659,41 +1661,87 @@ environment(pheatmap_seed) = environment(pheatmap)
     
   if("Venn diagram" %in% section){
   ##### Venn diagram #####
-    venn_list = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]]))
-    names(venn_list) = names(deseq_results_sig)
-    if(length(venn_list) > 5){
-      if(length(venn_list) %% 5 == 0){
-        venn_sub = c(0,cumsum(rep(5,length(venn_list)/5)))
-      }else{
-        if(length(venn_list) != 6){
-          if(length(venn_list) %% 4 == 1){
-            venn_sub = c(0,cumsum(c(rep(4,(length(venn_list) %/% 4) - 1),4 + (length(venn_list) %% 4))))
-          }else{
-            venn_sub = c(0,cumsum(c(rep(4,(length(venn_list) %/% 4)),rep(length(venn_list) %% 4,as.logical(length(venn_list) %% 4)))))
-          }}else{
-            venn_sub = c(0,3,6)
-          }
+    # Intersect function
+    dir.create(paste0(rlog_vst,"/Venn_Significant_DEGs"),showWarnings = FALSE)
+    venn_calculate = function(x = NULL){
+      intersect_list = list()
+      intersect_list[[1]] = x
+      for(i in 1:length(intersect_list[[1]])){
+        attr(x = intersect_list[[1]][[i]],which = "Sample") = names(intersect_list[[1]][i])
       }
-      for(i in 1:(length(venn_sub)-1)){
-      temp_venn = venn.diagram(venn_list[(venn_sub[i]+1):venn_sub[i+1]],
+      for(intersect_order in 2:length(intersect_list[[1]])){
+        intersect_list[[intersect_order]] = list()
+        new_sample = 0
+        for(sample_query in 1:length(intersect_list[[intersect_order-1]])){
+          if(max(which(x = names(intersect_list[[1]]) %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample"))) < length(intersect_list[[1]])){
+            for(sample_subject in (max(which(x = names(intersect_list[[1]]) %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample")))+1):length(intersect_list[[1]])){
+              if(!attr(intersect_list[[1]][[sample_subject]],which = "Sample") %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample")){
+                new_sample = new_sample+1
+                intersect_list[[intersect_order]][[new_sample]] = intersect(
+                  x = intersect_list[[intersect_order-1]][[sample_query]],
+                  y = intersect_list[[1]][[sample_subject]]
+                )
+                attr(x = intersect_list[[intersect_order]][[new_sample]],which = "Sample") = c(
+                  attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample"),
+                  attr(intersect_list[[1]][[sample_subject]],which = "Sample")
+                )
+              }
+            }
+          }
+        }
+      }
+      venn_list = list()
+      for(intersect_order in 1:(length(intersect_list)-1)){
+        venn_list[[intersect_order]] = intersect_list[[intersect_order]]
+        for(sample_query in 1:length(intersect_list[[intersect_order]])){
+          for(sample_subject in 1:length(intersect_list[[intersect_order+1]])){
+            if(any(attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample") %in% attr(intersect_list[[intersect_order+1]][[sample_subject]],which = "Sample"))){
+              venn_list[[intersect_order]][[sample_query]] = venn_list[[intersect_order]][[sample_query]][!venn_list[[intersect_order]][[sample_query]] %in% intersect_list[[intersect_order+1]][[sample_subject]]]
+              attr(venn_list[[intersect_order]][[sample_query]], which = "Sample") = attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample")
+            }
+          }
+        }
+      }
+      venn_list[[length(intersect_list)]] = intersect_list[[length(intersect_list)]]
+      return(venn_list)
+    }
+    venn_list = list()
+    venn_list[["all"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]]))
+    venn_list[["up"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]])[deseq_results_sig[[x]][["log2FoldChange"]] > 0])
+    venn_list[["down"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]])[deseq_results_sig[[x]][["log2FoldChange"]] < 0])
+    names(venn_list[["all"]]) = names(deseq_results_sig)
+    names(venn_list[["up"]]) = names(deseq_results_sig)
+    names(venn_list[["down"]]) = names(deseq_results_sig)
+    lapply(names(venn_list),function(venn_name){
+      lapply(names(venn_list[[venn_name]]),function(venn_write){
+        write.table(x = venn_list[[venn_name]][[venn_write]],
+                  file = paste0(rlog_vst,"/Venn_Significant_DEGs/Venn_Significant_DEGs_",venn_write,"_",venn_name,"_",rlog_vst,"_",genes_isoforms,".txt"),
+                  quote = FALSE,
+                  row.names = FALSE,
+                  col.names = FALSE)
+      })
+      if(length(venn_list[[venn_name]]) > 5){
+      venn_sub = cut(1:length(venn_list[[venn_name]]),ceiling(length(venn_list[[venn_name]])/5), labels = FALSE)
+      for(i in unique(venn_sub)){
+      temp_venn = venn.diagram(venn_list[[venn_name]][venn_sub %in% i],
                                filename = NULL,
                                imagetype = "png",
-                               fill = brewer.pal(brewer.pal.info["Set1","maxcolors"],"Set1")[1:(venn_sub[i+1] - venn_sub[i])],
-                               alpha = rep(0.25,(venn_sub[i+1] - venn_sub[i])),
-                               lwd = rep(0,(venn_sub[i+1] - venn_sub[i])),
+                               fill = brewer.pal(brewer.pal.info["Set1","maxcolors"],"Set1")[1:sum(venn_sub %in% i)],
+                               alpha = rep(0.25,sum(venn_sub %in% i)),
+                               lwd = rep(0,sum(venn_sub %in% i)),
                                force.unique = TRUE,
                                ext.percent = 0.01,
                                cex = 1.5,
                                cat.cex = 1.5
       )
-      png(filename = paste0("rlog/Venn_diagram_",Experiment_name,"_",i,".png"),width = 1080,height = 720,units = "px")
+      png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",Experiment_name,"_",i,".png"),width = 1080,height = 720,units = "px")
       grid.newpage()
       pushViewport(viewport(width=unit(0.8, "npc"), height = unit(0.8, "npc")))
       grid.draw(temp_venn)
       while(!is.null(dev.list())){dev.off()}
       }
     }else{
-      temp_venn = venn.diagram(venn_list,
+      temp_venn = venn.diagram(venn_list[[venn_name]],
                                filename = NULL,
                                imagetype = "png",
                                fill = brewer.pal(brewer.pal.info["Set1","maxcolors"],"Set1")[1:length(deseq_results_sig)],
@@ -1704,13 +1752,13 @@ environment(pheatmap_seed) = environment(pheatmap)
                                cex = 1.5,
                                cat.cex = 1.5
                                )
-      png(filename = paste0("rlog/Venn_diagram_",Experiment_name,".png"),width = 1080,height = 720,units = "px")
+      png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",Experiment_name,".png"),width = 1080,height = 720,units = "px")
       grid.newpage()
       pushViewport(viewport(width=unit(0.8, "npc"), height = unit(0.8, "npc")))
       grid.draw(temp_venn)
       while(!is.null(dev.list())){dev.off()}
     }
-    rm(temp_venn)
+    })
     unlink("VennDiagram*.log")
   }
     if("Variable heatmap and report" %in% section){
