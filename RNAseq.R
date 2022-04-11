@@ -1788,9 +1788,9 @@ environment(pheatmap_seed) = environment(pheatmap)
     for(int in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
     data_set_DESeq_int = data_set_DESeq[rownames(deseq_results_sig[[int]]),]
       for(i in factors){
-      DESeq_report = HTMLReport(shortName = paste0(rlog_vst,"_",genes_isoforms,"_",int,"_reports"),
-                                title = paste0(rlog_vst,"_",genes_isoforms,"_",int,"_reports"),
-                                reportDirectory = paste0(rlog_vst,"/",int,"_report"))
+      DESeq_report = HTMLReport(shortName = paste0(rlog_vst,"_",genes_isoforms,"_",int,"_",i,"_reports"),
+                                title = paste0(rlog_vst,"_",genes_isoforms,"_",int,"_",i,"_reports"),
+                                reportDirectory = paste0(rlog_vst,"/",int,"_",i,"_report"))
       publish(object = data_set_DESeq_int,
               publicationType = DESeq_report,
               pvalueCuttoff = alpha,
