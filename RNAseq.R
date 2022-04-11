@@ -1385,6 +1385,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
       
       ######       PCA DEGs       ######
+      if("Dispersion estimates, PCAs and PCoAs" %in% section){
       if(!is.null(attr(deseq_results[[compare_var]],which = "factor")) & length(deseq_sig) > 0){
       PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]] = plotPCA_PC123(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),returnData = TRUE)
       if(!is.null(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]])){
@@ -1426,6 +1427,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
+      }
       }
       }
       
