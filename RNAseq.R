@@ -1320,6 +1320,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     summary(object = temp_results,alpha = alpha)
     sink()
     deseq_results[[i]] = as.data.frame(temp_results)
+    attr(deseq_results[[compare_var]],which = "factor") = i
     rm(temp_results)
   }
   }
@@ -1778,7 +1779,26 @@ environment(pheatmap_seed) = environment(pheatmap)
           factor = colData(data_set_DESeq)[[i]],
           reportDir = paste0(rlog_vst,"/reports"),make.plots = TRUE)
   finish(DESeq_report)
+  rm(DESeq_report)
   }
+  
+  if(length(grep(pattern = ":",design_formula))){
+    for(int in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
+    data_set_DESeq_int = data_set_DESeq[rownames(deseq_results_sig[[int]]),]
+      for(i in factors){
+      DESeq_report = HTMLReport(shortName = paste0(rlog_vst,"_",genes_isoforms,"_",i,"_reports"),
+                                title = paste0(rlog_vst,"_",genes_isoforms,"_",i,"_reports"),
+                                reportDirectory = paste0(rlog_vst,"/",i,"_report"))
+      publish(object = data_set_DESeq_int,
+              publicationType = DESeq_report,
+              pvalueCuttoff = alpha,
+              factor = colData(data_set_DESeq)[[i]],
+              reportDir = paste0(rlog_vst,"/reports"),make.plots = TRUE)
+      finish(DESeq_report)
+      rm(DESeq_report)
+    }
+    }
+    }
   cat("Reports completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
     if(exists("PCA_data")){
