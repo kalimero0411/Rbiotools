@@ -1309,22 +1309,33 @@ environment(pheatmap_seed) = environment(pheatmap)
       sink()
       deseq_results[[compare_var]] = as.data.frame(temp_results)
       attr(deseq_results[[compare_var]],which = "factor") = f
+      deseq_results[[compare_var]] = deseq_results[[compare_var]][order(deseq_results[[compare_var]][["padj"]]),]
+      cat("Note: Removing ",sum(is.na(deseq_results[[compare_var]]))," empty genes from analysis\n", sep = "")
+      deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
+      write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
+      write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
     }
     rm(temp_results)
+    
   }
   
   ## Interactions
   if(length(grep(pattern = ":",design_formula))){
-  for(i in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
-    cat("#####    Getting results for interaction: ",i,"   ######\n",sep = "")
-    temp_results = results(data_set_DESeq, name = i,parallel = TRUE)
+  for(compare_var in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
+    cat("#####    Getting results for interaction: ",compare_var,"   ######\n",sep = "")
+    temp_results = results(data_set_DESeq, name = v,parallel = TRUE)
     sink(file = paste0(genes_isoforms,"_summary.txt"),append = TRUE)
-    cat(i,"_interaction", sep = "")
+    cat(compare_var,"_interaction", sep = "")
     summary(object = temp_results,alpha = alpha)
     sink()
-    deseq_results[[i]] = as.data.frame(temp_results)
-    attr(deseq_results[[i]],which = "factor") = i
+    deseq_results[[compare_var]] = as.data.frame(temp_results)
+    attr(deseq_results[[compare_var]],which = "factor") = compare_var
     rm(temp_results)
+    deseq_results[[compare_var]] = deseq_results[[compare_var]][order(deseq_results[[compare_var]][["padj"]]),]
+    cat("Note: Removing ",sum(is.na(deseq_results[[compare_var]]))," empty genes from analysis\n", sep = "")
+    deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
+    deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
+    write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
   }
   }
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
@@ -1334,14 +1345,9 @@ environment(pheatmap_seed) = environment(pheatmap)
   if(!exists("PCA_data")){
     PCA_data = list()
   }
-  for(compare_var in resultsNames(data_set_DESeq)[-1]){
-      deseq_results[[compare_var]] = deseq_results[[compare_var]][order(deseq_results[[compare_var]][["padj"]]),]
-      cat("Note: Removing ",sum(is.na(deseq_results[[compare_var]]))," empty genes from analysis\n", sep = "")
-      deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
-      write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
+  for(compare_var in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE)){
       
       #####    Create count matrix heat map    ######
-      deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
       deseq_sig = rownames(deseq_results_sig[[compare_var]])
       DE_genes_sig = deseq_sig
       if(remove_isoforms){
