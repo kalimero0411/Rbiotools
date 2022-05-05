@@ -76,10 +76,10 @@ if(!interactive()){
   cat("Loading RData file: ",args[["rdata"]],"\n",sep = "")
   load(args[["rdata"]])
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-  wd = args[["wd"]]
+  wd = path.expand(args[["wd"]])
   Experiment_name = args[["name"]]
   if("input" %in% names(args)){
-    input_path = args[["input"]]
+    input_path = path.expand(args[["input"]])
   }
   heatmap_row_clust = !"heatmap_no_clust" %in% names(args)
   NOISeq_correction = "NOISeq" %in% names(args)
@@ -180,7 +180,7 @@ if(.Platform$OS.type == "unix"){
 
 ###### Set working directory ######
 cat("#####   Select working directory   #####\n")
-wd = rstudioapi::selectDirectory(caption = "Choose working directory:")
+wd = path.expand(rstudioapi::selectDirectory(caption = "Choose working directory:"))
 setwd(wd)
 
 ##### Setup experiment name ######
@@ -226,7 +226,7 @@ section = select.list(choices = c("Run settings",
 if("Run settings" %in% section){
   # Get mapper output and factor number
   Mapper = select.list(choices = c("RSEM","Kallisto","HTseq-count","Counts"),multiple = FALSE,title = "Select Mapper",graphics = TRUE)
-  input_path = rstudioapi::selectDirectory(caption = "Choose mapping output directory: ")
+  input_path = path.expand(rstudioapi::selectDirectory(caption = "Choose mapping output directory: "))
   
   # Lengths from GTF file
   if(Mapper == "Counts" | Mapper == "HTseq-count"){
@@ -273,8 +273,11 @@ if("Run settings" %in% section){
   if(meta_input == "Text file"){
     experimental_design = read.table(file = file.choose(),header = TRUE,sep = "\t",row.names = 1)
     if(!all(experimental_design[,1] %in% list.files(path = input_path,full.names = TRUE))){
+      cat("Changing file paths to selected input path\n")
+      experimental_design[,1] = file.path(input_path,basename(experimental_design[,1]))
+      if(!all(experimental_design[,1] %in% list.files(path = input_path,full.names = TRUE))){
       stop("Error: file names in experimental design file must match file names (multiple files) / sample names (one file counts)\n",call. = TRUE)
-    }
+    }}
     file_names = experimental_design[,1]
     experimental_design = experimental_design[,-1,drop = FALSE]
     factors = colnames(experimental_design)
