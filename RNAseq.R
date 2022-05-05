@@ -1323,7 +1323,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   if(length(grep(pattern = ":",design_formula))){
   for(compare_var in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
     cat("#####    Getting results for interaction: ",compare_var,"   ######\n",sep = "")
-    temp_results = results(data_set_DESeq, name = v,parallel = TRUE)
+    temp_results = results(data_set_DESeq, name = compare_var,parallel = TRUE)
     sink(file = paste0(genes_isoforms,"_summary.txt"),append = TRUE)
     cat(compare_var,"_interaction", sep = "")
     summary(object = temp_results,alpha = alpha)
