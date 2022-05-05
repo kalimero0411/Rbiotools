@@ -1334,7 +1334,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   if(!exists("PCA_data")){
     PCA_data = list()
   }
-  for(compare_var in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE)){
+  for(compare_var in resultsNames(data_set_DESeq)[-1]){
       deseq_results[[compare_var]] = deseq_results[[compare_var]][order(deseq_results[[compare_var]][["padj"]]),]
       cat("Note: Removing ",sum(is.na(deseq_results[[compare_var]]))," empty genes from analysis\n", sep = "")
       deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
