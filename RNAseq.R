@@ -1323,7 +1323,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     summary(object = temp_results,alpha = alpha)
     sink()
     deseq_results[[i]] = as.data.frame(temp_results)
-    attr(deseq_results[[compare_var]],which = "factor") = i
+    attr(deseq_results[[i]],which = "factor") = i
     rm(temp_results)
   }
   }
