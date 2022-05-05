@@ -1312,6 +1312,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       deseq_results[[compare_var]] = deseq_results[[compare_var]][order(deseq_results[[compare_var]][["padj"]]),]
       cat("Note: Removing ",sum(is.na(deseq_results[[compare_var]]))," empty genes from analysis\n", sep = "")
       deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
+      deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
       write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
       write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
     }
