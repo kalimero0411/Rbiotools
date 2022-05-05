@@ -1780,9 +1780,12 @@ environment(pheatmap_seed) = environment(pheatmap)
   DESeq_report = HTMLReport(shortName = paste0(rlog_vst,"_",genes_isoforms,"_",i,"_reports"),
                           title = paste0(rlog_vst,"_",genes_isoforms,"_",i,"_reports"),
                           reportDirectory = paste0(rlog_vst,"/",i,"_report"))
-  publish(object = data_set_DESeq,DESeq_report,pvalueCuttoff=alpha,
+  publish(object = data_set_DESeq,
+          DESeq_report,
+          pvalueCutoff=alpha,
           factor = colData(data_set_DESeq)[[i]],
-          reportDir = paste0(rlog_vst,"/reports"),make.plots = TRUE)
+          reportDir = paste0(rlog_vst,"/reports"),
+          make.plots = TRUE)
   finish(DESeq_report)
   rm(DESeq_report)
   }
@@ -1796,9 +1799,10 @@ environment(pheatmap_seed) = environment(pheatmap)
                                 reportDirectory = paste0(rlog_vst,"/",int,"_",i,"_report"))
       publish(object = data_set_DESeq_int,
               publicationType = DESeq_report,
-              pvalueCuttoff = alpha,
+              pvalueCutoff = alpha,
               factor = colData(data_set_DESeq)[[i]],
-              reportDir = paste0(rlog_vst,"/reports"),make.plots = TRUE)
+              reportDir = paste0(rlog_vst,"/reports"),
+              make.plots = TRUE)
       finish(DESeq_report)
       rm(DESeq_report)
     }
