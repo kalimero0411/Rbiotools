@@ -1657,7 +1657,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       
       #######     topGO annotation      #########
       if("topGO analysis" %in% section){
-        topGO_fun = function(DE_genes_sig,compare_var){
+        topGO_fun = function(DE_genes_sig,compare_var,k){
           geneList = factor(as.integer(names(geneGO) %in% DE_genes_sig),levels = c(0,1))
           names(geneList) = names(geneGO)
           for(ontology in c("BP","MF","CC")){
@@ -1715,7 +1715,8 @@ environment(pheatmap_seed) = environment(pheatmap)
                    lapply(venn_calc[[x]],function(y){
                      sapply(y,function(z){
                        topGO_fun(DE_genes_sig = z,
-                                 compare_var = paste0("Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")))
+                                 compare_var = paste0("Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),
+                                 k = "venn")
                                  })
                      })
             })
