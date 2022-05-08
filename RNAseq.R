@@ -53,9 +53,9 @@ if(!interactive()){
                            "","10 = MA-plot",
                            "","11 = DEG heatmap",
                            "","12 = goseq GO analysis",
-                           "","13 = topGO analysis",
-                           "","14 = Word cloud",
-                           "","15 = Venn diagram",
+                           "","13 = Venn diagram",
+                           "","14 = topGO analysis",
+                           "","15 = Word cloud",
                            "","16 = Variable heatmap and report",
                            "","(e.g. 2,5,6,7,8,9,10,11,12)",
                            "--remove_isoforms","Remove isoform suffix from gene IDs",
@@ -107,9 +107,9 @@ if(!interactive()){
               "MA-plot",
               "DEG heatmap",
               "goseq GO analysis",
+              "Venn diagram",
               "topGO analysis",
               "Wordcloud",
-              "Venn diagram",
               "Variable heatmap and report")
   section = section[as.numeric(unlist(strsplit(args[["process"]],split = ",")))]
   if(!"Optimize K-means" %in% section & "K-means clustering" %in% section){
@@ -1546,11 +1546,181 @@ environment(pheatmap_seed) = environment(pheatmap)
         cat("goseq GO analysis completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
       }
       
+      ##### Venn Diagrams #####
+      if("Venn diagram" %in% section){
+        # Intersect function
+        # dir.create(paste0(rlog_vst,"/Venn_Significant_DEGs"),showWarnings = FALSE)
+        venn_calculate = function(x = NULL){
+          intersect_list = list()
+          intersect_list[[1]] = x
+          for(i in 1:length(intersect_list[[1]])){
+            attr(x = intersect_list[[1]][[i]],which = "Sample") = names(intersect_list[[1]][i])
+          }
+          for(intersect_order in 2:length(intersect_list[[1]])){
+            intersect_list[[intersect_order]] = list()
+            new_sample = 0
+            for(sample_query in 1:length(intersect_list[[intersect_order-1]])){
+              if(max(which(x = names(intersect_list[[1]]) %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample"))) < length(intersect_list[[1]])){
+                for(sample_subject in (max(which(x = names(intersect_list[[1]]) %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample")))+1):length(intersect_list[[1]])){
+                  if(!attr(intersect_list[[1]][[sample_subject]],which = "Sample") %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample")){
+                    new_sample = new_sample+1
+                    intersect_list[[intersect_order]][[new_sample]] = intersect(
+                      x = intersect_list[[intersect_order-1]][[sample_query]],
+                      y = intersect_list[[1]][[sample_subject]]
+                    )
+                    attr(x = intersect_list[[intersect_order]][[new_sample]],which = "Sample") = c(
+                      attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample"),
+                      attr(intersect_list[[1]][[sample_subject]],which = "Sample")
+                    )
+                  }
+                }
+              }
+            }
+          }
+          venn_list = list()
+          for(intersect_order in 1:(length(intersect_list)-1)){
+            venn_list[[intersect_order]] = intersect_list[[intersect_order]]
+            for(sample_query in 1:length(intersect_list[[intersect_order]])){
+              for(sample_subject in 1:length(intersect_list[[intersect_order+1]])){
+                if(any(attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample") %in% attr(intersect_list[[intersect_order+1]][[sample_subject]],which = "Sample"))){
+                  venn_list[[intersect_order]][[sample_query]] = venn_list[[intersect_order]][[sample_query]][!venn_list[[intersect_order]][[sample_query]] %in% intersect_list[[intersect_order+1]][[sample_subject]]]
+                  attr(venn_list[[intersect_order]][[sample_query]], which = "Sample") = attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample")
+                }
+              }
+            }
+          }
+          venn_list[[length(intersect_list)]] = intersect_list[[length(intersect_list)]]
+          return(venn_list)
+        }
+        venn_list = list()
+        venn_list[["all"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]]))
+        venn_list[["up"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]])[deseq_results_sig[[x]][["log2FoldChange"]] > 0])
+        venn_list[["down"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]])[deseq_results_sig[[x]][["log2FoldChange"]] < 0])
+        names(venn_list[["all"]]) = names(deseq_results_sig)
+        names(venn_list[["up"]]) = names(deseq_results_sig)
+        names(venn_list[["down"]]) = names(deseq_results_sig)
+        
+        venn_calc = lapply(venn_list,venn_calculate)
+        names(venn_calc) = names(venn_list)
+        
+        lapply(names(venn_list),function(venn_name){
+          
+        #   lapply(names(venn_list[[venn_name]]),function(venn_write){
+        #     write.table(x = venn_list[[venn_name]][[venn_write]],
+        #                 file = paste0(rlog_vst,"/Venn_Significant_DEGs/Venn_Significant_DEGs_",venn_write,"_",venn_name,"_",rlog_vst,"_",genes_isoforms,".txt"),
+        #                 quote = FALSE,
+        #                 row.names = FALSE,
+        #                 col.names = FALSE)
+        #   })
+          
+            if(length(venn_list[[venn_name]]) > 5){
+            venn_sub = cut(1:length(venn_list[[venn_name]]),ceiling(length(venn_list[[venn_name]])/5), labels = FALSE)
+            for(i in unique(venn_sub)){
+              temp_venn = venn.diagram(venn_list[[venn_name]][venn_sub %in% i],
+                                       filename = NULL,
+                                       imagetype = "png",
+                                       fill = brewer.pal(brewer.pal.info["Set1","maxcolors"],"Set1")[1:sum(venn_sub %in% i)],
+                                       alpha = rep(0.25,sum(venn_sub %in% i)),
+                                       lwd = rep(0,sum(venn_sub %in% i)),
+                                       force.unique = TRUE,
+                                       ext.percent = 0.01,
+                                       cex = 1.5,
+                                       cat.cex = 1.5
+              )
+              png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",Experiment_name,"_",i,".png"),width = 1080,height = 720,units = "px")
+              grid.newpage()
+              pushViewport(viewport(width=unit(0.8, "npc"), height = unit(0.8, "npc")))
+              grid.draw(temp_venn)
+              while(!is.null(dev.list())){dev.off()}
+            }
+          }else{
+            temp_venn = venn.diagram(venn_list[[venn_name]],
+                                     filename = NULL,
+                                     imagetype = "png",
+                                     fill = brewer.pal(brewer.pal.info["Set1","maxcolors"],"Set1")[1:length(deseq_results_sig)],
+                                     alpha = rep(0.25,length(deseq_results_sig)),
+                                     lwd = rep(0,length(deseq_results_sig)),
+                                     force.unique = TRUE,
+                                     ext.percent = 0.01,
+                                     cex = 1.5,
+                                     cat.cex = 1.5
+            )
+            png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",Experiment_name,".png"),width = 1080,height = 720,units = "px")
+            grid.newpage()
+            pushViewport(viewport(width=unit(0.8, "npc"), height = unit(0.8, "npc")))
+            grid.draw(temp_venn)
+            while(!is.null(dev.list())){dev.off()}
+          }
+        })
+        unlink("VennDiagram*.log")
+      }
+      
       #######     topGO annotation      #########
       if("topGO analysis" %in% section){
+        topGO_fun = function(DE_genes_sig,compare_var){
+          geneList = factor(as.integer(names(geneGO) %in% DE_genes_sig),levels = c(0,1))
+          names(geneList) = names(geneGO)
+          for(ontology in c("BP","MF","CC")){
+            sampleGOdata = new("topGOdata",
+                               description = "Simple session",
+                               ontology = ontology,
+                               allGenes = geneList,
+                               annot = annFUN.gene2GO,
+                               gene2GO = geneGO)
+            enrich_result = runTest(sampleGOdata, statistic = "fisher")
+            printGraph(object = sampleGOdata,
+                       result = enrich_result,
+                       firstSigNodes = sum(enrich_result@score <= alpha),
+                       fn.prefix = paste0(rlog_vst,"/top_GO_annotation/topGO_graphs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology),
+                       useInfo = "all",
+                       pdfSW = TRUE)
+            
+            if(sum(enrich_result@score <= alpha) > 0){
+              GO_DEGs_df = GenTable(object = sampleGOdata,classicFisher = enrich_result,topNodes = sum(enrich_result@score <= alpha))
+              GO_DEGs_df[["Definition"]] = sapply(GO_DEGs_df$GO.ID,function(x){
+                return(GO_terms[[x]]@Definition)
+              })
+              colnames(GO_DEGs_df) = c("Term","Definition")
+              write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
+              
+              if("Wordcloud" %in% section){
+                cat("Creating enriched DEG Wordclouds...\n",sep = "")
+                DEG_table = table(GO_DEGs_df[,"Term"])
+                DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function|*",x = names(DEG_table),invert = TRUE)]
+                cat(format(round((3*match(k,if(exists("k_clusters")){c("all",1:k_clusters)}else{"all"}))/(3*if(exists("k_clusters")){k_clusters + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \r",sep = "")
+                if(length(DEG_table) > 0){
+                  png(filename = paste0(rlog_vst,"/Wordcloud/Enriched_Wordcloud_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
+                  tryCatch(expr = {
+                    wordcloud(words = names(DEG_table),
+                              freq = DEG_table,
+                              min.freq=1,
+                              max.words=100,
+                              random.order=FALSE,
+                              rot.per=0.35,
+                              use.r.layout=FALSE,
+                              colors=brewer.pal(8, "Dark2"),
+                              scale=c(5,0.4)
+                    )
+                  },error = function(e) e)
+                  while (!is.null(dev.list())){dev.off()}
+                }
+              }
+            }
+          }
+        }
         dir.create(paste0(rlog_vst,"/top_GO_annotation/topGO_graphs"),showWarnings = FALSE, recursive = TRUE)
         dir.create(paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs"),showWarnings = FALSE)
-        time_start=Sys.time()
+        if(exists("venn_calc")){
+          lapply(names(venn_calc),function(x){
+                   lapply(venn_calc[[x]],function(y){
+                     sapply(y,function(z){
+                       topGO_fun(DE_genes_sig = z,
+                                 compare_var = paste0("Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")))
+                                 })
+                     })
+            })
+        }
+        # time_start=Sys.time()
         cat("#####    Starting topGO annotation    ######\n")
         for(k in if(exists("k_clusters")){
           c("all",1:k_clusters)
@@ -1568,58 +1738,10 @@ environment(pheatmap_seed) = environment(pheatmap)
             }
           }
           if(sum(names(geneGO) %in% DE_genes_sig) > 0){
-            geneList = factor(as.integer(names(geneGO) %in% DE_genes_sig),levels = c(0,1))
-            names(geneList) = names(geneGO)
-            for(ontology in c("BP","MF","CC")){
-              sampleGOdata = new("topGOdata",
-                                 description = "Simple session",
-                                 ontology = ontology,
-                                 allGenes = geneList,
-                                 annot = annFUN.gene2GO,
-                                 gene2GO = geneGO)
-              enrich_result = runTest(sampleGOdata, statistic = "fisher")
-              printGraph(object = sampleGOdata,
-                         result = enrich_result,
-                         firstSigNodes = 10,
-                         fn.prefix = paste0(rlog_vst,"/top_GO_annotation/topGO_graphs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology),
-                         useInfo = "all",
-                         pdfSW = FALSE)
-              
-              if(sum(enrich_result@score <= alpha) > 0){
-              GO_DEGs_df = as.data.frame(matrix(unlist(lapply(names(enrich_result@score[enrich_result@score <= alpha]),function(x){
-                return(c(attr(GO_terms[[x]],which = "Term",exact = TRUE),
-                         attr(GO_terms[[x]],which = "Definition",exact = TRUE)))
-              })),ncol = 2,byrow = TRUE),row.names = names(names(enrich_result@score[enrich_result@score <= alpha])))
-              colnames(GO_DEGs_df) = c("Term","Definition")
-              write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
-              
-              if("Wordcloud" %in% section){
-              cat("Creating enriched DEG Wordclouds...\n",sep = "")
-              DEG_table = table(GO_DEGs_df[,"Term"])
-              DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function|*",x = names(DEG_table),invert = TRUE)]
-              cat(format(round((3*match(k,if(exists("k_clusters")){c("all",1:k_clusters)}else{"all"}))/(3*if(exists("k_clusters")){k_clusters + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \r",sep = "")
-              if(length(DEG_table) > 0){
-                png(filename = paste0(rlog_vst,"/Wordcloud/Enriched_Wordcloud_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
-                tryCatch(expr = {
-                  wordcloud(words = names(DEG_table),
-                            freq = DEG_table,
-                            min.freq=1,
-                            max.words=100,
-                            random.order=FALSE,
-                            rot.per=0.35,
-                            use.r.layout=FALSE,
-                            colors=brewer.pal(8, "Dark2"),
-                            scale=c(5,0.4)
-                  )
-                },error = function(e) e)
-                while (!is.null(dev.list())){dev.off()}
-              }
-              }
-              }
-            }
+            topGO_fun(DE_genes_sig = DE_genes_sig,compare_var = compare_var)
           }
         }
-        # try(system(command = paste0("for i in ",rlog_vst,"/top_GO_annotation/topGO_graphs/*.ps; do convert -density 800 -rotate 90 $i ${i/.ps/.png} && rm -f $i; done")))
+        # try(system(command = paste0("for i in $(find . -type f -name "*.ps"; do convert -density 800 -rotate 90 $i ${i/.ps/.png} && rm -f $i; done")))
         cat("topGO analysis completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
       }
       
@@ -1671,109 +1793,6 @@ environment(pheatmap_seed) = environment(pheatmap)
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
   }
   
-    
-  if("Venn diagram" %in% section){
-  ##### Venn diagram #####
-    # Intersect function
-    dir.create(paste0(rlog_vst,"/Venn_Significant_DEGs"),showWarnings = FALSE)
-    venn_calculate = function(x = NULL){
-      intersect_list = list()
-      intersect_list[[1]] = x
-      for(i in 1:length(intersect_list[[1]])){
-        attr(x = intersect_list[[1]][[i]],which = "Sample") = names(intersect_list[[1]][i])
-      }
-      for(intersect_order in 2:length(intersect_list[[1]])){
-        intersect_list[[intersect_order]] = list()
-        new_sample = 0
-        for(sample_query in 1:length(intersect_list[[intersect_order-1]])){
-          if(max(which(x = names(intersect_list[[1]]) %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample"))) < length(intersect_list[[1]])){
-            for(sample_subject in (max(which(x = names(intersect_list[[1]]) %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample")))+1):length(intersect_list[[1]])){
-              if(!attr(intersect_list[[1]][[sample_subject]],which = "Sample") %in% attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample")){
-                new_sample = new_sample+1
-                intersect_list[[intersect_order]][[new_sample]] = intersect(
-                  x = intersect_list[[intersect_order-1]][[sample_query]],
-                  y = intersect_list[[1]][[sample_subject]]
-                )
-                attr(x = intersect_list[[intersect_order]][[new_sample]],which = "Sample") = c(
-                  attr(intersect_list[[intersect_order-1]][[sample_query]],which = "Sample"),
-                  attr(intersect_list[[1]][[sample_subject]],which = "Sample")
-                )
-              }
-            }
-          }
-        }
-      }
-      venn_list = list()
-      for(intersect_order in 1:(length(intersect_list)-1)){
-        venn_list[[intersect_order]] = intersect_list[[intersect_order]]
-        for(sample_query in 1:length(intersect_list[[intersect_order]])){
-          for(sample_subject in 1:length(intersect_list[[intersect_order+1]])){
-            if(any(attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample") %in% attr(intersect_list[[intersect_order+1]][[sample_subject]],which = "Sample"))){
-              venn_list[[intersect_order]][[sample_query]] = venn_list[[intersect_order]][[sample_query]][!venn_list[[intersect_order]][[sample_query]] %in% intersect_list[[intersect_order+1]][[sample_subject]]]
-              attr(venn_list[[intersect_order]][[sample_query]], which = "Sample") = attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample")
-            }
-          }
-        }
-      }
-      venn_list[[length(intersect_list)]] = intersect_list[[length(intersect_list)]]
-      return(venn_list)
-    }
-    venn_list = list()
-    venn_list[["all"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]]))
-    venn_list[["up"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]])[deseq_results_sig[[x]][["log2FoldChange"]] > 0])
-    venn_list[["down"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]])[deseq_results_sig[[x]][["log2FoldChange"]] < 0])
-    names(venn_list[["all"]]) = names(deseq_results_sig)
-    names(venn_list[["up"]]) = names(deseq_results_sig)
-    names(venn_list[["down"]]) = names(deseq_results_sig)
-    lapply(names(venn_list),function(venn_name){
-      lapply(names(venn_list[[venn_name]]),function(venn_write){
-        write.table(x = venn_list[[venn_name]][[venn_write]],
-                  file = paste0(rlog_vst,"/Venn_Significant_DEGs/Venn_Significant_DEGs_",venn_write,"_",venn_name,"_",rlog_vst,"_",genes_isoforms,".txt"),
-                  quote = FALSE,
-                  row.names = FALSE,
-                  col.names = FALSE)
-      })
-      if(length(venn_list[[venn_name]]) > 5){
-      venn_sub = cut(1:length(venn_list[[venn_name]]),ceiling(length(venn_list[[venn_name]])/5), labels = FALSE)
-      for(i in unique(venn_sub)){
-      temp_venn = venn.diagram(venn_list[[venn_name]][venn_sub %in% i],
-                               filename = NULL,
-                               imagetype = "png",
-                               fill = brewer.pal(brewer.pal.info["Set1","maxcolors"],"Set1")[1:sum(venn_sub %in% i)],
-                               alpha = rep(0.25,sum(venn_sub %in% i)),
-                               lwd = rep(0,sum(venn_sub %in% i)),
-                               force.unique = TRUE,
-                               ext.percent = 0.01,
-                               cex = 1.5,
-                               cat.cex = 1.5
-      )
-      png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",Experiment_name,"_",i,".png"),width = 1080,height = 720,units = "px")
-      grid.newpage()
-      pushViewport(viewport(width=unit(0.8, "npc"), height = unit(0.8, "npc")))
-      grid.draw(temp_venn)
-      while(!is.null(dev.list())){dev.off()}
-      }
-    }else{
-      temp_venn = venn.diagram(venn_list[[venn_name]],
-                               filename = NULL,
-                               imagetype = "png",
-                               fill = brewer.pal(brewer.pal.info["Set1","maxcolors"],"Set1")[1:length(deseq_results_sig)],
-                               alpha = rep(0.25,length(deseq_results_sig)),
-                               lwd = rep(0,length(deseq_results_sig)),
-                               force.unique = TRUE,
-                               ext.percent = 0.01,
-                               cex = 1.5,
-                               cat.cex = 1.5
-                               )
-      png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",Experiment_name,".png"),width = 1080,height = 720,units = "px")
-      grid.newpage()
-      pushViewport(viewport(width=unit(0.8, "npc"), height = unit(0.8, "npc")))
-      grid.draw(temp_venn)
-      while(!is.null(dev.list())){dev.off()}
-    }
-    })
-    unlink("VennDiagram*.log")
-  }
     if("Variable heatmap and report" %in% section){
   #####    Create variable distance heat map    ######
   cat("#####    Creating variable distance heat map    ######\n")
