@@ -1739,7 +1739,7 @@ environment(pheatmap_seed) = environment(pheatmap)
             }
           }
           if(sum(names(geneGO) %in% DE_genes_sig) > 0){
-            topGO_fun(DE_genes_sig = DE_genes_sig,compare_var = compare_var)
+            topGO_fun(DE_genes_sig = DE_genes_sig,compare_var = compare_var,k = k)
           }
         }
         # try(system(command = paste0("for i in $(find . -type f -name "*.ps"; do convert -density 800 -rotate 90 $i ${i/.ps/.png} && rm -f $i; done")))
