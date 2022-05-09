@@ -1713,7 +1713,7 @@ environment(pheatmap_seed) = environment(pheatmap)
           lapply(names(venn_calc),function(x){
                    lapply(venn_calc[[x]],function(y){
                      sapply(y,function(z){
-                       write.table(z,file = paste0(rlog_vst,"/Significant_DEGs/Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")))
+                       write.table(z,file = paste0(rlog_vst,"/Significant_DEGs/Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
                        topGO_fun(DE_genes_sig = z,
                                  compare_var = paste0("Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),
                                  k = "venn")
