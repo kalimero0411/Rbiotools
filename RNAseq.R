@@ -1680,8 +1680,7 @@ environment(pheatmap_seed) = environment(pheatmap)
               GO_DEGs_df[["Definition"]] = sapply(GO_DEGs_df$GO.ID,function(x){
                 return(GO_terms[[x]]@Definition)
               })
-              colnames(GO_DEGs_df) = c("Term","Definition")
-              write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
+              write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
               
               if("Wordcloud" %in% section){
                 cat("Creating enriched DEG Wordclouds...\n",sep = "")
