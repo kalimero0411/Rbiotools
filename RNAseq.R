@@ -1605,14 +1605,14 @@ environment(pheatmap_seed) = environment(pheatmap)
         
         lapply(names(venn_list),function(venn_name){
           
-          lapply(names(venn_list[[venn_name]]),function(venn_write){
-            write.table(x = venn_list[[venn_name]][[venn_write]],
-                        file = paste0(rlog_vst,"/Significant_DEGs/Venn_Significant_DEGs_",venn_write,"_",venn_name,"_",rlog_vst,"_",genes_isoforms,".txt"),
-                        quote = FALSE,
-                        row.names = FALSE,
-                        col.names = FALSE)
-          })
-          
+          # lapply(names(venn_list[[venn_name]]),function(venn_write){
+          #   write.table(x = venn_list[[venn_name]][[venn_write]],
+          #               file = paste0(rlog_vst,"/Significant_DEGs/Venn_Significant_DEGs_",venn_write,"_",venn_name,"_",rlog_vst,"_",genes_isoforms,".txt"),
+          #               quote = FALSE,
+          #               row.names = FALSE,
+          #               col.names = FALSE)
+          # })
+
             if(length(venn_list[[venn_name]]) > 5){
             venn_sub = cut(1:length(venn_list[[venn_name]]),ceiling(length(venn_list[[venn_name]])/5), labels = FALSE)
             for(i in unique(venn_sub)){
@@ -1713,6 +1713,7 @@ environment(pheatmap_seed) = environment(pheatmap)
           lapply(names(venn_calc),function(x){
                    lapply(venn_calc[[x]],function(y){
                      sapply(y,function(z){
+                       write.table(z,file = paste0(rlog_vst,"/Significant_DEGs/Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")))
                        topGO_fun(DE_genes_sig = z,
                                  compare_var = paste0("Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),
                                  k = "venn")
