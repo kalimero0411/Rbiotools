@@ -1605,13 +1605,13 @@ environment(pheatmap_seed) = environment(pheatmap)
         
         lapply(names(venn_list),function(venn_name){
           
-        #   lapply(names(venn_list[[venn_name]]),function(venn_write){
-        #     write.table(x = venn_list[[venn_name]][[venn_write]],
-        #                 file = paste0(rlog_vst,"/Venn_Significant_DEGs/Venn_Significant_DEGs_",venn_write,"_",venn_name,"_",rlog_vst,"_",genes_isoforms,".txt"),
-        #                 quote = FALSE,
-        #                 row.names = FALSE,
-        #                 col.names = FALSE)
-        #   })
+          lapply(names(venn_list[[venn_name]]),function(venn_write){
+            write.table(x = venn_list[[venn_name]][[venn_write]],
+                        file = paste0(rlog_vst,"/Significant_DEGs/Venn_Significant_DEGs_",venn_write,"_",venn_name,"_",rlog_vst,"_",genes_isoforms,".txt"),
+                        quote = FALSE,
+                        row.names = FALSE,
+                        col.names = FALSE)
+          })
           
             if(length(venn_list[[venn_name]]) > 5){
             venn_sub = cut(1:length(venn_list[[venn_name]]),ceiling(length(venn_list[[venn_name]])/5), labels = FALSE)
