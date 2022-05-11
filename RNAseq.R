@@ -1550,7 +1550,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       if("Venn diagram" %in% section){
         # Intersect function
         # dir.create(paste0(rlog_vst,"/Venn_Significant_DEGs"),showWarnings = FALSE)
-        venn_calculate = function(x = NULL){
+        venn_calculate = function(x){
           intersect_list = list()
           intersect_list[[1]] = x
           for(i in 1:length(intersect_list[[1]])){
@@ -1600,8 +1600,10 @@ environment(pheatmap_seed) = environment(pheatmap)
         names(venn_list[["up"]]) = names(deseq_results_sig)
         names(venn_list[["down"]]) = names(deseq_results_sig)
         
-        venn_calc = lapply(venn_list,venn_calculate)
-        names(venn_calc) = names(venn_list)
+        if(min(lengths(venn_list)) > 1){
+          venn_calc = lapply(venn_list,venn_calculate)
+          names(venn_calc) = names(venn_list)
+        }
         
         lapply(names(venn_list),function(venn_name){
           
