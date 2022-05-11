@@ -1549,13 +1549,14 @@ environment(pheatmap_seed) = environment(pheatmap)
       ##### Venn Diagrams #####
       if("Venn diagram" %in% section){
         # Intersect function
-        # dir.create(paste0(rlog_vst,"/Venn_Significant_DEGs"),showWarnings = FALSE)
         venn_calculate = function(x){
           intersect_list = list()
+          res_list = list()
           intersect_list[[1]] = x
           for(i in 1:length(intersect_list[[1]])){
             attr(x = intersect_list[[1]][[i]],which = "Sample") = names(intersect_list[[1]][i])
           }
+          if(length(intersect_list) > 1){
           for(intersect_order in 2:length(intersect_list[[1]])){
             intersect_list[[intersect_order]] = list()
             new_sample = 0
@@ -1577,21 +1578,22 @@ environment(pheatmap_seed) = environment(pheatmap)
               }
             }
           }
-          venn_list = list()
           for(intersect_order in 1:(length(intersect_list)-1)){
-            venn_list[[intersect_order]] = intersect_list[[intersect_order]]
+            res_list[[intersect_order]] = intersect_list[[intersect_order]]
             for(sample_query in 1:length(intersect_list[[intersect_order]])){
               for(sample_subject in 1:length(intersect_list[[intersect_order+1]])){
                 if(any(attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample") %in% attr(intersect_list[[intersect_order+1]][[sample_subject]],which = "Sample"))){
-                  venn_list[[intersect_order]][[sample_query]] = venn_list[[intersect_order]][[sample_query]][!venn_list[[intersect_order]][[sample_query]] %in% intersect_list[[intersect_order+1]][[sample_subject]]]
-                  attr(venn_list[[intersect_order]][[sample_query]], which = "Sample") = attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample")
+                  res_list[[intersect_order]][[sample_query]] = res_list[[intersect_order]][[sample_query]][!res_list[[intersect_order]][[sample_query]] %in% intersect_list[[intersect_order+1]][[sample_subject]]]
+                  attr(res_list[[intersect_order]][[sample_query]], which = "Sample") = attr(intersect_list[[intersect_order]][[sample_query]],which = "Sample")
                 }
               }
             }
           }
-          venn_list[[length(intersect_list)]] = intersect_list[[length(intersect_list)]]
-          return(venn_list)
+          }
+          res_list[[length(intersect_list)]] = intersect_list[[length(intersect_list)]]
+          return(res_list)
         }
+        
         venn_list = list()
         venn_list[["all"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]]))
         venn_list[["up"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]])[deseq_results_sig[[x]][["log2FoldChange"]] > 0])
@@ -1600,10 +1602,9 @@ environment(pheatmap_seed) = environment(pheatmap)
         names(venn_list[["up"]]) = names(deseq_results_sig)
         names(venn_list[["down"]]) = names(deseq_results_sig)
         
-        if(min(lengths(venn_list)) > 1){
-          venn_calc = lapply(venn_list,venn_calculate)
-          names(venn_calc) = names(venn_list)
-        }
+        venn_calc = lapply(venn_list,venn_calculate)
+        names(venn_calc) = names(venn_list)
+    
         
         lapply(names(venn_list),function(venn_name){
           

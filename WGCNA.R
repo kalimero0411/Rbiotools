@@ -343,3 +343,22 @@ for(me in names(MEList$averageExpr)){
   while (!is.null(dev.list())){dev.off()}
 }
 }
+
+# Top membership genes
+geneModuleMembership = as.data.frame(cor(data, orderMEs(moduleEigengenes(data, dynamicColors)$eigengenes), use = "p"))
+topgenes = lapply(colnames(geneModuleMembership),function(module){
+  temp = geneModuleMembership[[module]]
+  names(temp) = rownames(geneModuleMembership)
+  return(sort(temp,decreasing = TRUE))
+})
+names(topgenes) = colnames(geneModuleMembership)
+dir.create("module_genes",showWarnings = FALSE)
+for(module in names(topgenes)){
+  write.table(as.data.frame(topgenes[[module]]),
+              file = paste0("module_genes/",module,".txt"),
+              quote = FALSE,
+              sep = "\t",
+              row.names = TRUE,
+              col.names = FALSE)
+}
+
