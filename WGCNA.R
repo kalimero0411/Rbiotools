@@ -207,7 +207,7 @@ save.image(paste0(Experiment_name,"_sft.RData"))
 }
 
 
-if("TOM" %in% names(args)){
+if("TOM" %in% section){
   if(!blockwise){
     dissTOM = 1 - TOMsimilarity(adjacency(data,
                                           power = softPower,
@@ -344,6 +344,7 @@ for(me in names(MEList$averageExpr)){
 }
 }
 
+if("top genes" %in% section){
 # Top membership genes
 geneModuleMembership = as.data.frame(cor(data, orderMEs(moduleEigengenes(data, dynamicColors)$eigengenes), use = "p"))
 topgenes = lapply(colnames(geneModuleMembership),function(module){
@@ -362,3 +363,115 @@ for(module in names(topgenes)){
               col.names = FALSE)
 }
 
+t.test2 = function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
+{
+  if( equal.variance==FALSE ) 
+  {
+    se <- sqrt( (s1^2/n1) + (s2^2/n2) )
+    # welch-satterthwaite df
+    df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
+  } else
+  {
+    # pooled standard deviation, scaled by the sample sizes
+    se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) ) 
+    df <- n1+n2-2
+  }      
+  t <- (m1-m2-m0)/se 
+  dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))    
+  names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
+  return(dat) 
+}
+
+Aemods = c("blue",
+       "brown",
+       "darkgreen",
+       "darkgrey",
+       "darkturquoise",
+       "lightgreen",
+       "purple",
+       "salmon",
+       "turquoise")
+
+top_stats = lapply(Aemods,function(Ae){
+  res = lapply(names(topgenes[[paste0("ME",Ae)]][1:100]),function(topgene){
+  top = t(TMM_non_zero[topgene,])[,1]
+  top_stats = sapply(levels(factors[[1]]),function(fac){
+    samples = rownames(factors)[factors[[1]] %in% fac]
+    return(c(
+      Mean = mean(top[names(top) %in% samples]),
+      SD = sd(top[names(top) %in% samples]),
+      N = length(top[names(top) %in% samples])))
+  })
+  return(top_stats)
+  })
+  names(res) = names(topgenes[[paste0("ME",Ae)]][1:100])
+  return(res)
+})
+names(top_stats) = Aemods
+
+top_tests = lapply(Aemods,function(Ae){
+tests = lapply(top_stats[[Ae]],function(stats){
+  p.adjust(sapply(paste0("T",c(0,1,2,5,8)),function(x){
+t.test2(m1 = stats["Mean",paste0(x,".31")],
+        m2 = stats["Mean",paste0(x,".27")],
+        s1 = stats["SD",paste0(x,".31")],
+        s2 = stats["SD",paste0(x,".27")],
+        n1 = stats["N",paste0(x,".31")],
+        n2 = stats["N",paste0(x,".27")],
+        equal.variance = FALSE)[["p-value"]]
+}),method = "BH")
+})
+})
+
+names(top_tests) = Aemods
+
+sig_pattern = unname(as.data.frame(t(expand.grid(0,c(0,1),c(0,1),1,1))))
+
+top_sig_pattern = lapply(sig_pattern,function(pattern){
+  top = lapply(top_tests,function(x){
+  names(x)[sapply(x,function(y){
+    return(identical(unname(y)<0.05,as.logical(pattern)))
+  })]
+})
+  temp = unlist(top,use.names = FALSE)
+  temp = setNames(temp,rep(names(top),lengths(top)))
+  temp = temp[!duplicated(temp)]
+  return(temp)
+  })
+top_sig_pattern = unlist(top_sig_pattern)
+top_sig_stats = apply(t(TMM_non_zero[top_sig_pattern,]),MARGIN = 2,ME_rep)
+
+# experimental_design = data.frame(Timepoint = rep(paste0("T",c(0,1,2,5,8)),each = 2),
+#                                  Temperature = rep(c(27,31),times = 5))
+dir.create("module_genes/top_genes",showWarnings = FALSE)
+invisible(sapply(names(top_sig_stats),function(me){
+  top_data = top_sig_stats[[me]]
+  top_control = data.frame(Sample = unique(gsub(names(top_data[["Mean"]]),pattern = "[.].+",replacement = "",perl = TRUE)),
+                           Mean = top_data[["Mean"]][grepl(pattern = "27",x = names(top_data[["Mean"]]))],
+                           SD = top_data[["SD"]][grepl(pattern = "27",x = names(top_data[["SD"]]))])
+  top_test = data.frame(Sample = unique(gsub(names(top_data[["Mean"]]),pattern = "[.].+",replacement = "",perl = TRUE)),
+                           Mean = top_data[["Mean"]][grepl(pattern = "31",x = names(top_data[["Mean"]]))],
+                           SD = top_data[["SD"]][grepl(pattern = "31",x = names(top_data[["SD"]]))])
+  png(filename = paste0("module_genes/top_genes/",me,".png"),width = 1080,height = 1080,units = "px")
+  print(ggplot(data = top_control, aes(x = Sample,y = Mean,group = 1)) +
+          geom_errorbar(aes(ymin = Mean - SD,
+                            ymax = Mean + SD),
+                        width=.2,
+                        position=position_dodge(0.05),
+                        color = "black") +
+          geom_line(aes(y = Mean)) +
+          geom_point(aes(y = Mean), color = "black") +
+          geom_line(data = top_test, aes(x = Sample,y = Mean,group = 1),color = "red") +
+          geom_errorbar(data = top_test,
+                        aes(ymin = Mean - SD,
+                            ymax = Mean + SD),
+                        width=.2,
+                        position=position_dodge(0.05),
+                        color = "red") +
+          geom_point(data = top_test,aes(y = Mean), color = "red") +
+          ggtitle(paste0(me," (",names(top_sig_pattern[top_sig_pattern %in% me]),")")) +
+          ylab("Mean TMM") +
+          theme(text = element_text(size = 30)))
+  while (!is.null(dev.list())){dev.off()}
+}))
+}

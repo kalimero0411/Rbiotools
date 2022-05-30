@@ -3,17 +3,14 @@
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
              "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","rgl","ape","cluster","data.table",
              "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils","VennDiagram","wordcloud",
-             "tm","topGO","Rgraphviz","NOISeq")
-if(interactive()){
-  packages = c(packages,"rChoiceDialogs")
+             "tm","topGO","Rgraphviz","NOISeq","bcbioRNASeq")
+
+if(!"bcbioRNASeq" %in% rownames(installed.packages())){
+  install.packages(
+    pkgs = "bcbioRNASeq",
+    repos = c("https://r.acidgenomics.com",getOption("repos"))
+  )
 }
-# if(!"bcbioRNASeq" %in% rownames(installed.packages())){
-#   install.packages(
-#     pkgs = "bcbioRNASeq",
-#     repos = c("https://r.acidgenomics.com",getOption("repos"))
-#   )
-# }
-packages = c(packages,"bcbioRNASeq")
 
 invisible(
   suppressMessages(
@@ -1549,7 +1546,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       ##### Venn Diagrams #####
       if("Venn diagram" %in% section){
         # Intersect function
-        venn_calculate = function(x){
+         venn_calculate = function(x){
           intersect_list = list()
           res_list = list()
           intersect_list[[1]] = x
@@ -1745,7 +1742,7 @@ environment(pheatmap_seed) = environment(pheatmap)
             topGO_fun(DE_genes_sig = DE_genes_sig,compare_var = compare_var,k = k)
           }
         }
-        # try(system(command = paste0("for i in $(find . -type f -name "*.ps"; do convert -density 800 -rotate 90 $i ${i/.ps/.png} && rm -f $i; done")))
+        # try(system(command = paste0("for i in $(find . -type f -name "*.ps"); do convert -density 800 -rotate 90 $i ${i/.ps/.png} && rm -f $i; done")))
         cat("topGO analysis completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
       }
       
