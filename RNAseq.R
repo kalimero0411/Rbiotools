@@ -79,7 +79,13 @@ if(!interactive()){
     input_path = path.expand(args[["input"]])
   }
   heatmap_row_clust = !"heatmap_no_clust" %in% names(args)
-  NOISeq_correction = "NOISeq" %in% names(args)
+  if("NOISeq" %in% names(args)){
+    NOISeq_correction = TRUE
+  }else{
+    if(!exists("NOISeq_correction")){
+      NOISeq_correction = FALSE
+    }
+  }
   dir.create(path = paste0(wd,"/",Experiment_name),showWarnings = FALSE)
   setwd(paste0(wd,"/",Experiment_name))
   if(!exists("design_formula")){
