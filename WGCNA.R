@@ -3,7 +3,7 @@ packages = c("purrr", "bindr", "Biobase", "BiocGenerics", "checkmate", "digest",
              "ggplot2", "gplots", "ggpubr", "IRanges", "RColorBrewer", "robust", "tidyr", "WGCNA","parallel","R.utils","MatrixGenerics","pheatmap")
 
 if(interactive()){
-  packages = c(packages,"rChoiceDialogs","BiocParallel")
+  packages = c(packages,"BiocParallel")
 }
 
 invisible(
@@ -134,18 +134,19 @@ if(!interactive()){
   
 }else{
   threads = detectCores()
-  wd = rchoose.dir(caption = "Choose working directory:")
-  section = rselect.list(choices = c("TOM","power"),multiple = TRUE)
+  wd = rstudioapi::selectDirectory(caption = "Choose working directory:")
+  Experiment_name = as.character(readline(prompt = "Select experiment name: "))
+  section = select.list(choices = c("TOM","power"),multiple = TRUE)
   if("TOM" %in% section){
-    softPower = as.numeric(readline(prompt = "Select soft power value"))
-    blockwise = rselect.list(choices = c("Single TOM","Blockwise module creation"),multiple = FALSE)
-    if(blockwise == "Blockwise module creation"){
+    softPower = as.numeric(readline(prompt = "Select soft power value: "))
+    blockwise = "Blockwise module creation" == select.list(choices = c("Single TOM","Blockwise module creation"),multiple = FALSE)
+    if(blockwise){
       maxBlockSize = readline(prompt = "Select maximum block size: ")
     }
   }
   minModuleSize = readline(prompt = "Select minimum module size (Typically 50): ")
   setwd(wd)
-  data_format = rselect.list(choices = c("rds","tsv","csv"),multiple = FALSE,title = "Select data format")
+  data_format = select.list(choices = c("rds","tsv","csv"),multiple = FALSE,title = "Select data format")
   min_expression = as.numeric(readline(prompt = "Minimum expression: "))
   if(data_format == "rds"){
     data = readRDS(file.choose())
