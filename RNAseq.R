@@ -877,9 +877,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     sampleTable = cbind(sampleTable,experimental_design)
     data_set = DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,directory = input_path,design = design_formula)
     count_table = assay(data_set)
-    if(any(grepl(pattern = "^N_unmapped$|^N_multimapping$|^N_noFeature$|^N_ambiguous$",rownames(count_table)))){
-      count_table = count_table[!grepl(pattern = "^N_unmapped$|^N_multimapping$|^N_noFeature$|^N_ambiguous$",rownames(count_table)),]
-    }
+    count_table = count_table[!grepl(pattern = "^N_unmapped$|^N_multimapping$|^N_noFeature$|^N_ambiguous$",rownames(count_table)),]
   }
     
   if(Mapper == "Counts"){
@@ -904,11 +902,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
     }
         colnames(count_table) = rownames(experimental_design)
-    data_set = DESeqDataSetFromMatrix(countData = count_table,
-                                      colData = experimental_design,
-                                      design = design_formula,
-                                      tidy = FALSE,
-                                      ignoreRank = FALSE)
+    
   }
     if(NOISeq_correction){
       count_table = round(ARSyNseq(data = readData(data = filtered.data(dataset = count_table,
@@ -927,7 +921,14 @@ environment(pheatmap_seed) = environment(pheatmap)
                                         design = design_formula,
                                         tidy = FALSE,
                                         ignoreRank = FALSE)
+    }else{
+      data_set = DESeqDataSetFromMatrix(countData = count_table,
+                                        colData = experimental_design,
+                                        design = design_formula,
+                                        tidy = FALSE,
+                                        ignoreRank = FALSE)
     }
+    
       TPM = if(ncol(count_table) == ncol(gene_length)){
         as.data.frame(lapply(1:ncol(count_table),function(x){
           RPK = count_table[,x]/(gene_length[,x]/1000)
