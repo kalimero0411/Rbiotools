@@ -40,7 +40,7 @@ if(!interactive()){
                            "--arg","Additional R arguments (multiple arguments in separate flags)")
                   ,ncol = 2,byrow = TRUE)
     prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
-    stop(paste0("Missing command line input --> rds/tsv/csv | ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
+    stop(paste0("Missing command line input --> rdata/rds/tsv/csv | ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
   }
   
   # saveRDS(data,file = "data.rds")
@@ -75,7 +75,7 @@ if(!interactive()){
   }else{
     min_expression = 0
   }
-  if("factors" %in% names(args)){
+  if("factors" %in% names(args) | exists("factors")){
     factors = readRDS(args[["factors"]])
     if(!"rep_factors" %in% names(args)){
       cat("Using first factor for replicates\n")
