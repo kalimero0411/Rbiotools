@@ -393,6 +393,16 @@ Aemods = c("blue",
        "salmon",
        "turquoise")
 
+Aemods = c("darkmagenta",
+           "darkgrey",
+           "cyan",
+           "royalblue",
+           "salmon",
+           "tan",
+           "violet",
+           "yellow",
+           "black")
+
 top_stats = lapply(Aemods,function(Ae){
   res = lapply(names(topgenes[[paste0("ME",Ae)]][1:100]),function(topgene){
   top = t(TMM_non_zero[topgene,])[,1]
@@ -412,7 +422,7 @@ names(top_stats) = Aemods
 
 top_tests = lapply(Aemods,function(Ae){
 tests = lapply(top_stats[[Ae]],function(stats){
-  p.adjust(sapply(paste0("T",c(0,1,2,5,8)),function(x){
+  sapply(paste0("T",c(0,1,2,5,8)),function(x){
 t.test2(m1 = stats["Mean",paste0(x,".31")],
         m2 = stats["Mean",paste0(x,".27")],
         s1 = stats["SD",paste0(x,".31")],
@@ -420,13 +430,13 @@ t.test2(m1 = stats["Mean",paste0(x,".31")],
         n1 = stats["N",paste0(x,".31")],
         n2 = stats["N",paste0(x,".27")],
         equal.variance = FALSE)[["p-value"]]
-}),method = "BH")
+})
 })
 })
 
 names(top_tests) = Aemods
 
-sig_pattern = unname(as.data.frame(t(expand.grid(0,c(0,1),c(0,1),1,1))))
+sig_pattern = unname(as.data.frame(t(expand.grid(0,c(0,1),c(0,1),1,c(0,1)))))
 
 top_sig_pattern = lapply(sig_pattern,function(pattern){
   top = lapply(top_tests,function(x){
@@ -475,4 +485,14 @@ invisible(sapply(names(top_sig_stats),function(me){
           theme(text = element_text(size = 30)))
   while (!is.null(dev.list())){dev.off()}
 }))
+
+write.table(names(top_sig_stats),file = "top_genes_ttest.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+
+data_set_transform = readRDS(file = "rlog_data.rds")
+pheatmap(scale(assay(data_set_transform))[rownames(assay(data_set_transform)) %in% names(top_sig_stats),],
+         show_rownames = FALSE,
+         cluster_cols = FALSE,
+         annotation_col = as.data.frame(colData(data_set_transform))[-ncol(colData(data_set_transform))],
+         filename = "top_genes.png")
+
 }
