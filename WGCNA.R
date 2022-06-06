@@ -24,6 +24,7 @@ if(!interactive()){
   must_args = c("wd","name","threads")
   if(!all(must_args %in% names(args)) & !any(c("rds","tsv","csv") %in% names(args))){
     help = matrix(data = c("--rds    ","RDS file path",
+                           "--rdata    ","RData file path",
                            "--factors    ","Factors for experimental design",
                            "--tsv","Data in tab-seperated format",
                            "--csv","Data in comma-seperated format",
@@ -44,7 +45,9 @@ if(!interactive()){
   
   # saveRDS(data,file = "data.rds")
   cat("Loading RData file: ",args[["rdata"]],"\n",sep = "")
-  # load(args[["rdata"]])
+  if("rdata" %in% names(args)){
+    load(args[["rdata"]])
+  }
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   section = c()
   wd = args[["wd"]]
