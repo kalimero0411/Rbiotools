@@ -22,7 +22,7 @@ options(stringsAsFactors = FALSE)
 if(!interactive()){
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   must_args = c("wd","name","threads")
-  if(!all(must_args %in% names(args)) & !any(c("rds","tsv","csv") %in% names(args))){
+  if(!all(must_args %in% names(args)) & !any(c("rdata","rds","tsv","csv") %in% names(args))){
     help = matrix(data = c("--rds    ","RDS file path",
                            "--rdata    ","RData file path",
                            "--factors    ","Factors for experimental design",
