@@ -219,7 +219,7 @@ if("TOM" %in% section){
                                           type = "signed"),
                                 TOMType="signed")
     
-    # save.image(paste0(Experiment_name,"_dissTOM.RData"))
+    save.image(paste0(Experiment_name,"_dissTOM.RData"))
     
     # Tree clustering
     geneTree = flashClust(as.dist(dissTOM), method = "average")
