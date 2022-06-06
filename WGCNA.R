@@ -75,7 +75,7 @@ if(!interactive()){
   }else{
     min_expression = 0
   }
-  if("factors" %in% names(args) | exists("factors")){
+  if("factors" %in% names(args)){
     factors = readRDS(args[["factors"]])
     if(!"rep_factors" %in% names(args)){
       cat("Using first factor for replicates\n")
@@ -84,9 +84,10 @@ if(!interactive()){
       rep_factors = args[["rep_factors"]]
     }
   }else{
+    if(!exists("factors")){
     factors = NULL
     rep_factors = NULL
-  }
+  }}
   dir.create(path = paste0(wd,"/",Experiment_name),showWarnings = FALSE)
   setwd(paste0(wd,"/",Experiment_name))
   if(sum(c("rds","tsv","csv") %in% names(args)) > 1){
