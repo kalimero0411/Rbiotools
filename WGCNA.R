@@ -167,6 +167,7 @@ if(!interactive()){
 
 enableWGCNAThreads(nThreads = threads)
 
+if(!exists("data")){
 data = t(data[apply(data,1,max) > min_expression,])
 if(!is.null(rep_factors)){
   experiment_reps = factor(paste(factors[,rep_factors[1]],sep = "."))
@@ -175,6 +176,7 @@ if(!is.null(rep_factors)){
     experiment_reps = factor(paste(experiment_reps,factors[,rep_factors[i]],sep = "."))
   }
   }
+}
 }
 
 if(goodSamplesGenes(data, verbose = 0)$allOK){
