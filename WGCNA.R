@@ -1,6 +1,7 @@
 ##### SETUP #####
 packages = c("purrr", "bindr", "Biobase", "BiocGenerics", "checkmate", "digest","dplyr", "dynamicTreeCut", "flashClust", 
-             "ggplot2", "gplots", "ggpubr", "IRanges", "RColorBrewer", "robust", "tidyr", "WGCNA","parallel","R.utils","MatrixGenerics","pheatmap")
+             "ggplot2", "gplots", "ggpubr", "IRanges", "RColorBrewer", "robust", "tidyr", "WGCNA","parallel","R.utils",
+             "MatrixGenerics","pheatmap")
 
 if(interactive()){
   packages = c(packages,"BiocParallel")
@@ -21,13 +22,9 @@ options(stringsAsFactors = FALSE)
 
 if(!interactive()){
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-  must_args = c("wd","name","threads")
-  if(!all(must_args %in% names(args)) & !any(c("rdata","rds","tsv","csv") %in% names(args))){
-    help = matrix(data = c("--rds    ","RDS file path",
-                           "--rdata    ","RData file path",
-                           "--factors    ","Factors for experimental design",
-                           "--tsv","Data in tab-seperated format",
-                           "--csv","Data in comma-seperated format",
+  must_args = c("rdata","wd","name","threads")
+  if(!all(must_args %in% names(args))){
+    help = matrix(data = c("--rdata    ","RData file path",
                            "--wd","Working directory path",
                            "--name","Experiment name",
                            "--power","Scale Free Topology Model Fit",
@@ -40,7 +37,7 @@ if(!interactive()){
                            "--arg","Additional R arguments (multiple arguments in separate flags)")
                   ,ncol = 2,byrow = TRUE)
     prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
-    stop(paste0("Missing command line input --> rdata/rds/tsv/csv | ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
+    stop(paste(must_args[!must_args %in% names(args)],collapse = " | "), call. = TRUE)
   }
   
   # saveRDS(data,file = "data.rds")
@@ -75,36 +72,8 @@ if(!interactive()){
   }else{
     min_expression = 0
   }
-  if("factors" %in% names(args)){
-    factors = readRDS(args[["factors"]])
-    if(!"rep_factors" %in% names(args)){
-      cat("Using first factor for replicates\n")
-      rep_factors = colnames(factors)[1]
-    }else{
-      rep_factors = args[["rep_factors"]]
-    }
-  }else{
-    if(!exists("factors")){
-    factors = NULL
-    rep_factors = NULL
-  }}
   dir.create(path = paste0(wd,"/",Experiment_name),showWarnings = FALSE)
   setwd(paste0(wd,"/",Experiment_name))
-  if(sum(c("rds","tsv","csv") %in% names(args)) > 1){
-    stop("Error: Select only one data format (rds / tsv / csv)",call. = TRUE)
-  }
-  if("rds" %in% names(args)){
-    cat("Loading ",args[["rds"]],"\n")
-    data = readRDS(args[["rds"]])
-  }
-  if("tsv" %in% names(args)){
-    cat("Loading ",args[["tsv"]],"\n")
-    data = read.delim(file = args[["tsv"]],header = TRUE,sep = "\t",row.names = 1)
-  }
-  if("csv" %in% names(args)){
-    cat("Loading ",args[["csv"]],"\n")
-    data = read.delim(file = args[["csv"]],header = TRUE,sep = ",",row.names = 1)
-  }
   threads = as.numeric(args[["threads"]])
   
   ##### Additional arguments #####
@@ -139,6 +108,7 @@ if(!interactive()){
 }else{
   threads = detectCores()
   wd = rstudioapi::selectDirectory(caption = "Choose working directory:")
+  load(file.choose())
   Experiment_name = as.character(readline(prompt = "Select experiment name: "))
   section = select.list(choices = c("TOM","power"),multiple = TRUE)
   if("TOM" %in% section){
@@ -152,28 +122,17 @@ if(!interactive()){
   setwd(wd)
   data_format = select.list(choices = c("rds","tsv","csv"),multiple = FALSE,title = "Select data format")
   min_expression = as.numeric(readline(prompt = "Minimum expression: "))
-  if(data_format == "rds"){
-    data = readRDS(file.choose())
-  }
-  if(data_format == "tsv"){
-    data = read.delim(file = file.choose(),header = TRUE,sep = "\t")
-  }
-  if(data_format == "csv"){
-    data = read.delim(file = file.choose(),header = TRUE,sep = ",")
-  }
-  factors = readRDS(file.choose())
-  rep_factors = select.list(choices = colnames(factors),multiple = TRUE,title = "Select distinct factors for replicates")
 }
 
 enableWGCNAThreads(nThreads = threads)
 
 if(!exists("data")){
-data = t(data[apply(data,1,max) > min_expression,])
+data = t(data_vst[apply(data_vst,1,max) > min_expression,])
 if(!is.null(rep_factors)){
-  experiment_reps = factor(paste(factors[,rep_factors[1]],sep = "."))
+  experiment_reps = factor(paste(experimental_design[,rep_factors[1]],sep = "."))
   if(length(rep_factors) > 1){
   for(i in 2:length(rep_factors)){
-    experiment_reps = factor(paste(experiment_reps,factors[,rep_factors[i]],sep = "."))
+    experiment_reps = factor(paste(experiment_reps,experimental_design[,rep_factors[i]],sep = "."))
   }
   }
 }
@@ -307,8 +266,7 @@ if("TOM" %in% section){
          sub = "")
     while(!is.null(dev.list())) dev.off()
   }
-  save(list = ls()[grep(pattern = "dissTOM|blockTOM",x = ls(),invert = TRUE)],file = paste0(Experiment_name,"_TOM.RData"))
-  # save.image(paste0(Experiment_name,"_TOM.RData"))
+
 
 ME_rep = function(ME_data){
   return(list(Mean = sapply(levels(experiment_reps),function(x){
@@ -349,6 +307,8 @@ for(me in names(MEList$averageExpr)){
                         position=position_dodge(0.05)))
   while (!is.null(dev.list())){dev.off()}
 }
+save(list = ls()[grep(pattern = "dissTOM|blockTOM",x = ls(),invert = TRUE)],file = paste0(Experiment_name,"_TOM.RData"))
+# save.image(paste0(Experiment_name,"_TOM.RData"))
 }
 
 if("top genes" %in% section){
@@ -412,8 +372,8 @@ Aemods = c("darkmagenta",
 top_stats = lapply(Aemods,function(Ae){
   res = lapply(names(topgenes[[paste0("ME",Ae)]][1:100]),function(topgene){
   top = t(TMM_non_zero[topgene,])[,1]
-  top_stats = sapply(levels(factors[[1]]),function(fac){
-    samples = rownames(factors)[factors[[1]] %in% fac]
+  top_stats = sapply(levels(experimental_design[[1]]),function(fac){
+    samples = rownames(experimental_design)[experimental_design[[1]] %in% fac]
     return(c(
       Mean = mean(top[names(top) %in% samples]),
       SD = sd(top[names(top) %in% samples]),
@@ -494,11 +454,19 @@ invisible(sapply(names(top_sig_stats),function(me){
 
 write.table(names(top_sig_stats),file = "top_genes_ttest.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
 
-data_set_transform = readRDS(file = "rlog_data.rds")
-pheatmap(scale(assay(data_set_transform))[rownames(assay(data_set_transform)) %in% names(top_sig_stats),],
+if(exists("data_rlog")){
+  data_topgenes_scaled = scale(data_rlog)[rownames(data_rlog) %in% names(top_sig_stats),]
+}else{
+  data_topgenes_scaled = scale(data_vst)[rownames(data_vst) %in% names(top_sig_stats),]
+}
+
+data_topgenes_scaled = data_topgenes_scaled[,order(match(coldata[[1]],levels(coldata[[1]]))),drop = FALSE]
+coldata = coldata[order(match(coldata[[1]],levels(coldata[[1]]))),,drop = FALSE]
+
+pheatmap(data_topgenes_scaled,
          show_rownames = FALSE,
          cluster_cols = FALSE,
-         annotation_col = as.data.frame(colData(data_set_transform))[-ncol(colData(data_set_transform))],
+         annotation_col = coldata,
          filename = "top_genes.png")
 
 }

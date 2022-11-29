@@ -3,7 +3,7 @@
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
              "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","rgl","ape","cluster","data.table",
              "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils","VennDiagram","wordcloud",
-             "tm","topGO","Rgraphviz","NOISeq","bcbioRNASeq")
+             "tm","topGO","Rgraphviz","NOISeq")
 
 if(!"bcbioRNASeq" %in% rownames(installed.packages())){
   install.packages(
@@ -11,6 +11,7 @@ if(!"bcbioRNASeq" %in% rownames(installed.packages())){
     repos = c("https://r.acidgenomics.com",getOption("repos"))
   )
 }
+library("bcbioRNASeq")
 
 invisible(
   suppressMessages(
@@ -228,8 +229,8 @@ section = select.list(choices = c("Run settings",
 #####    Run settings    #####
 if("Run settings" %in% section){
   # Get mapper output and factor number
-  Mapper = select.list(choices = c("RSEM","Kallisto","HTseq-count","Counts"),multiple = FALSE,title = "Select Mapper",graphics = TRUE)
-  input_path = path.expand(rstudioapi::selectDirectory(caption = "Choose mapping output directory: "))
+  Mapper = select.list(choices = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),multiple = FALSE,title = "Select Mapper",graphics = TRUE)
+  input_path = path.expand(rstudioapi::selectDirectory(caption = "Choose mapping output directory: ",path = getwd()))
   
   # Lengths from GTF file
   if(Mapper == "Counts" | Mapper == "HTseq-count"){
@@ -257,7 +258,7 @@ if("Run settings" %in% section){
     remove_isoforms = FALSE
   }
   
-  if(Mapper == "Kallisto"){
+  if(Mapper == "Kallisto" || Mapper == "Salmon"){
     genes_isoforms = "genes"
     tx2gene = read.table(selectFile(caption = "Select transcript to gene file",path = getwd()))
   }
@@ -390,7 +391,7 @@ if("Run settings" %in% section){
 alpha = as.numeric(readline(prompt = "Choose alpha cutoff: "))
 FDR_cutoff = as.numeric(readline(prompt = "Choose FDR cutoff: "))
 rlog_vst = select.list(choices = c("rlog","VST"),multiple = FALSE,title = "Select transformation",graphics = TRUE)
-NOISeq_correction = select.list(choices = c("Yes","No"),multiple = FALSE,title = "NOISeq correction?",graphics = TRUE) == "Yes"
+NOISeq_correction = select.list(choices = c("No","Yes"),multiple = FALSE,title = "NOISeq correction?",graphics = TRUE) == "Yes"
 random_seed = as.numeric(readline(prompt = "Select seed value for random number generator: "))
 
 if(all(!"Optimize K-means" %in% section,"K-means clustering" %in% section)){
@@ -398,7 +399,7 @@ if(all(!"Optimize K-means" %in% section,"K-means clustering" %in% section)){
   }
 
 if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotations?",graphics = TRUE) == "Yes"){
-  GO_file = rchoose.files(caption = "Choose GO annotation file:")
+  GO_file = selectFile(caption = "Choose GO annotation file:",path = getwd())
 }
     save.image(paste0(Experiment_name,".RData"))
 }
@@ -864,10 +865,24 @@ environment(pheatmap_seed) = environment(pheatmap)
     
     if(Mapper == "Kallisto"){
       names(file_names) = rownames(experimental_design)
-      kallisto_counts = tximport(files = file_names,type = "kallisto", tx2gene = tx2gene)
+      kallisto_counts = tximport(files = file_names,type = "kallisto", tx2gene = tx2gene,countsFromAbundance = "lengthScaledTPM")
       kallisto_counts$length[kallisto_counts$length == 0] = 1
+      TPM = kallisto_counts$abundance
       data_set = DESeqDataSetFromTximport(txi = kallisto_counts,colData = experimental_design,design = design_formula)
       gene_length = kallisto_counts$length
+      count_table = assay(data_set)
+    }
+    
+    if(Mapper == "Salmon"){
+      names(file_names) = rownames(experimental_design)
+      salmon_counts = tximport(files = file_names,
+                           type = "salmon",
+                           txOut = TRUE,
+                           countsFromAbundance = "lengthScaledTPM")
+      salmon_counts$length[salmon_counts$length == 0] = 1
+      TPM = salmon_counts$abundance
+      data_set = DESeqDataSetFromTximport(txi = salmon_counts,colData = experimental_design,design = design_formula)
+      gene_length = salmon_counts$length
       count_table = assay(data_set)
     }
     
@@ -911,17 +926,14 @@ environment(pheatmap_seed) = environment(pheatmap)
                                                                         method = 3,
                                                                         norm = FALSE,
                                                                         factor = primary_factor),
-                                                   factors = experimental_design,
+                                                   factors = data.frame(experimental_design,
+                                                                        Replicates = apply(experimental_design,MARGIN = 1,function(x) paste(x,collapse = "."))),
                                                    length = as.matrix(gene_length)[,1]),
-                                   factor = primary_factor,
-                                   norm = "n")@assayData$exprs)
+                                   factor = "Replicates",
+                                   norm = "n",
+                                   batch = FALSE,
+                                   logtransf = FALSE)@assayData$exprs)
       gene_length = gene_length[rownames(count_table),,drop = FALSE]
-      data_set = DESeqDataSetFromMatrix(countData = count_table,
-                                        colData = experimental_design,
-                                        design = design_formula,
-                                        tidy = FALSE,
-                                        ignoreRank = FALSE)
-    }else{
       data_set = DESeqDataSetFromMatrix(countData = count_table,
                                         colData = experimental_design,
                                         design = design_formula,
@@ -929,19 +941,16 @@ environment(pheatmap_seed) = environment(pheatmap)
                                         ignoreRank = FALSE)
     }
     
+      if(!Mapper %in% c("Kallisto","Salmon")){
       TPM = if(ncol(count_table) == ncol(gene_length)){
-        as.data.frame(lapply(1:ncol(count_table),function(x){
-          RPK = count_table[,x]/(gene_length[,x]/1000)
-          return(RPK/(sum(RPK)/(10^6)))
-      }),row.names = rownames(count_table),col.names = colnames(count_table))
+        t(t(count_table/gene_length) * 1e6 / colSums(count_table/gene_length))
       }else{
-        as.data.frame(lapply(1:ncol(count_table),function(x){
-          RPK = count_table[,x]/(gene_length[,1]/1000)
-          return(RPK/(sum(RPK)/(10^6)))
-        }),row.names = rownames(count_table),col.names = colnames(count_table))
+        t(t(count_table/gene_length[,1]) * 1e6 / colSums(count_table/gene_length[,1]))
       }
-      write.table(TPM,file = "TPM.txt",quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
-      write.table(TPM[rowSums(TPM) > 0,],file = "TPM_non_zero.txt",quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
+      }
+    write.table(TPM,file = "TPM.txt",quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
+    write.table(TPM[rowSums(TPM) > 0,],file = "TPM_non_zero.txt",quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
+    
       if("bcbioRNASeq" %in% rownames(installed.packages())){
         library(bcbioRNASeq)
         TMM = tmm(count_table)
@@ -964,12 +973,11 @@ environment(pheatmap_seed) = environment(pheatmap)
     data_set_DESeq = DESeq(data_set,test = "LRT",reduced = reduced_formula,parallel = TRUE)
     cat("LRT ",genes_isoforms," completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-  
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_DESeq2_data.RData"))
   }
   
+#####   Transform counts   #####
   if("Transformation" %in% section){
-  #####   Transform counts   #####
   if(rlog_vst == "rlog"){
     cat("#####    rLog transforming ",genes_isoforms," counts    ######\n", sep = "")
     time_start=Sys.time()
@@ -982,14 +990,22 @@ environment(pheatmap_seed) = environment(pheatmap)
     data_set_transform = varianceStabilizingTransformation(data_set_DESeq,blind = FALSE)
     cat("VST transforming ",genes_isoforms," counts completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-    wgcna_data = if(rlog_vst == "rlog"){
-      assay(varianceStabilizingTransformation(data_set_DESeq,blind = FALSE))
+    
+  # Output for WGCNA
+    if(rlog_vst == "rlog"){
+        data_vst = assay(varianceStabilizingTransformation(data_set_DESeq,blind = FALSE))
+        coldata = as.data.frame(colData(data_set_transform))[-ncol(colData(data_set_transform))]
+        data_rlog = assay(data_set_transform)
+        save(list = c("data_vst","data_rlog","coldata","experimental_design"), file = "WGCNA_data.RData")
+        rm(data_vst,data_rlog,coldata)
       }else{
-        assay(data_set_transform)
+        data_vst = assay(data_set_transform)
+        coldata = as.data.frame(colData(data_set_transform))[-ncol(colData(data_set_transform))]
+        save(list = c("data_vst","coldata","experimental_design"), file = "WGCNA_data.RData")
+        rm(data_vst,coldata)
       }
-    saveRDS(object = experimental_design,file = paste0(Experiment_name,"_",genes_isoforms,"_","factors_for_WGCNA.rds"))
-    saveRDS(object = wgcna_data,file = paste0(Experiment_name,"_",genes_isoforms,"_","VST_for_WGCNA.rds"))
-    rm(wgcna_data)
+    
+    
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","transformed_data.RData"))
   }
   
@@ -1292,7 +1308,8 @@ environment(pheatmap_seed) = environment(pheatmap)
   #   })),ncol = ncol(gene_length),dimnames = list(unique(sub(pattern = isoform_pattern,replacement = "",x = rownames(gene_length))),colnames(gene_length)))
   #   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
   # }
-    
+  
+  ##### DEGs #####
   deseq_results = list()
   deseq_results_sig = list()
 
@@ -1309,7 +1326,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                              parallel = TRUE)
       sink(file = paste0(genes_isoforms,"_summary.txt"),append = TRUE)
       cat(i," vs. ",control_var, sep = "")
-      summary(object = temp_results,alpha = alpha)
+      summary(object = temp_results)
       sink()
       deseq_results[[compare_var]] = as.data.frame(temp_results)
       attr(deseq_results[[compare_var]],which = "factor") = f
@@ -1317,8 +1334,8 @@ environment(pheatmap_seed) = environment(pheatmap)
       cat("Note: Removing ",sum(is.na(deseq_results[[compare_var]]))," empty genes from analysis\n", sep = "")
       deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
       deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
-      write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
-      write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
+      write.table(deseq_results_sig[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
+      write.table(deseq_results_sig[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
     }
     rm(temp_results)
     
@@ -1340,7 +1357,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     cat("Note: Removing ",sum(is.na(deseq_results[[compare_var]]))," empty genes from analysis\n", sep = "")
     deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
     deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
-    write.table(deseq_results[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
+    write.table(deseq_results_sig[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
   }
   }
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
@@ -1553,14 +1570,14 @@ environment(pheatmap_seed) = environment(pheatmap)
       ##### Venn Diagrams #####
       if("Venn diagram" %in% section){
         # Intersect function
-         venn_calculate = function(x){
+         venn_calculate = function(deg_list){
           intersect_list = list()
           res_list = list()
-          intersect_list[[1]] = x
+          intersect_list[[1]] = deg_list
           for(i in 1:length(intersect_list[[1]])){
             attr(x = intersect_list[[1]][[i]],which = "Sample") = names(intersect_list[[1]][i])
           }
-          if(length(intersect_list) > 1){
+          if(length(intersect_list[[1]]) > 1){
           for(intersect_order in 2:length(intersect_list[[1]])){
             intersect_list[[intersect_order]] = list()
             new_sample = 0
@@ -1664,6 +1681,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       
       #######     topGO annotation      #########
       if("topGO analysis" %in% section){
+        time_start=Sys.time()
         topGO_fun = function(DE_genes_sig,compare_var,k){
           geneList = factor(as.integer(names(geneGO) %in% DE_genes_sig),levels = c(0,1))
           names(geneList) = names(geneGO)
@@ -1674,16 +1692,19 @@ environment(pheatmap_seed) = environment(pheatmap)
                                allGenes = geneList,
                                annot = annFUN.gene2GO,
                                gene2GO = geneGO)
-            enrich_result = runTest(sampleGOdata, statistic = "fisher")
-            printGraph(object = sampleGOdata,
-                       result = enrich_result,
-                       firstSigNodes = sum(enrich_result@score <= alpha),
-                       fn.prefix = paste0(rlog_vst,"/top_GO_annotation/topGO_graphs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology),
-                       useInfo = "all",
-                       pdfSW = TRUE)
+            enrich_result = runTest(sampleGOdata, statistic = "fisher",algorithm = "classic")
             
-            if(sum(enrich_result@score <= alpha) > 0){
-              GO_DEGs_df = GenTable(object = sampleGOdata,classicFisher = enrich_result,topNodes = sum(enrich_result@score <= alpha))
+            if(sum(enrich_result@score <= FDR_cutoff) > 0){
+              printGraph(object = sampleGOdata,
+                         result = enrich_result,
+                         firstSigNodes = 10,
+                         fn.prefix = paste0(rlog_vst,"/top_GO_annotation/topGO_graphs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_Best10_kcluster_",k,"_",ontology),
+                         useInfo = "all",
+                         pdfSW = TRUE)
+              GO_DEGs_df = GenTable(object = sampleGOdata,classicFisher = enrich_result,topNodes = sum(enrich_result@score <= FDR_cutoff))
+              GO_DEGs_df[["Term"]] = sapply(GO_DEGs_df$GO.ID,function(x){
+                return(GO_terms[[x]]@Term)
+              })
               GO_DEGs_df[["Definition"]] = sapply(GO_DEGs_df$GO.ID,function(x){
                 return(GO_terms[[x]]@Definition)
               })
@@ -1692,7 +1713,7 @@ environment(pheatmap_seed) = environment(pheatmap)
               if("Wordcloud" %in% section){
                 cat("Creating enriched DEG Wordclouds...\n",sep = "")
                 DEG_table = table(GO_DEGs_df[,"Term"])
-                DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function|*",x = names(DEG_table),invert = TRUE)]
+                DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
                 cat(format(round((3*match(k,if(exists("k_clusters")){c("all",1:k_clusters)}else{"all"}))/(3*if(exists("k_clusters")){k_clusters + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \r",sep = "")
                 if(length(DEG_table) > 0){
                   png(filename = paste0(rlog_vst,"/Wordcloud/Enriched_Wordcloud_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
@@ -1721,6 +1742,9 @@ environment(pheatmap_seed) = environment(pheatmap)
                    lapply(venn_calc[[x]],function(y){
                      sapply(y,function(z){
                        write.table(z,file = paste0(rlog_vst,"/Significant_DEGs/Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+                       if(remove_isoforms){
+                         z = unique(sub(pattern = isoform_pattern,replacement = "",x = z))
+                       }
                        topGO_fun(DE_genes_sig = z,
                                  compare_var = paste0("Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),
                                  k = "venn")
@@ -1728,7 +1752,6 @@ environment(pheatmap_seed) = environment(pheatmap)
                      })
             })
         }
-        # time_start=Sys.time()
         cat("#####    Starting topGO annotation    ######\n")
         for(k in if(exists("k_clusters")){
           c("all",1:k_clusters)
