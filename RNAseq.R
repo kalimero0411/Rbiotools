@@ -993,19 +993,18 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
     
   # Output for WGCNA
-    if(rlog_vst == "rlog"){
-        data_vst = assay(varianceStabilizingTransformation(data_set_DESeq,blind = FALSE))
-        coldata = as.data.frame(colData(data_set_transform))[-ncol(colData(data_set_transform))]
-        data_rlog = assay(data_set_transform)
-        save(list = c("data_vst","data_rlog","coldata","experimental_design"), file = "WGCNA_data.RData")
+        data_vst = if(rlog_vst == "rlog"){
+          assay(varianceStabilizingTransformation(data_set_DESeq,blind = FALSE))
+        }else{
+          assay(data_set_transform)
+        }
+        data_rlog = if(rlog_vst == "rlog"){
+          assay(data_set_transform)
+        }else{
+          assay(rlog(data_set_DESeq,blind = FALSE))
+        }
+        save(list = c("data_vst","data_rlog","experimental_design"), file = "WGCNA_data.RData")
         rm(data_vst,data_rlog,coldata)
-      }else{
-        data_vst = assay(data_set_transform)
-        coldata = as.data.frame(colData(data_set_transform))[-ncol(colData(data_set_transform))]
-        save(list = c("data_vst","coldata","experimental_design"), file = "WGCNA_data.RData")
-        rm(data_vst,coldata)
-      }
-    
     
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","transformed_data.RData"))
   }

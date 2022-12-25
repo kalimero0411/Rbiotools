@@ -27,6 +27,7 @@ if(!interactive()){
     help = matrix(data = c("--rdata    ","RData file path",
                            "--wd","Working directory path",
                            "--name","Experiment name",
+                           "--factors","Experimantal factors to test(Seperated by comma; Default = All factors)",
                            "--power","Scale Free Topology Model Fit",
                            "--TOM","Specify sft value and create Topology overlap matrix (TOM)",
                            "--blockwise","Perform blockwise calculation for TOM",
@@ -49,6 +50,11 @@ if(!interactive()){
   section = c()
   wd = args[["wd"]]
   Experiment_name = args[["name"]]
+  if("factors" %in% names(args)){
+    rep_factors = unlist(strsplit(args[["factors"]],split = ","))
+  }else{
+    rep_factors = colnames(experimental_design)
+  }
   blockwise = "blockwise" %in% names(args)
   if("power" %in% names(args)){
     section = c(section,"power")
@@ -122,12 +128,14 @@ if(!interactive()){
   setwd(wd)
   data_format = select.list(choices = c("rds","tsv","csv"),multiple = FALSE,title = "Select data format")
   min_expression = as.numeric(readline(prompt = "Minimum expression: "))
+  rep_factors = select.list(choices = colnames(experimental_design),multiple = TRUE,title = "Select factors")
 }
 
 enableWGCNAThreads(nThreads = threads)
 
 if(!exists("data")){
 data = t(data_vst[apply(data_vst,1,max) > min_expression,])
+data_rlog_scaled = scale(data_rlog, center=TRUE, scale=TRUE)
 if(!is.null(rep_factors)){
   experiment_reps = factor(paste(experimental_design[,rep_factors[1]],sep = "."))
   if(length(rep_factors) > 1){
@@ -200,6 +208,8 @@ if("TOM" %in% section){
     
     # Plotting modules
     dynamicColors = labels2colors(dynamicMods)
+    names(dynamicColors) = colnames(data)
+    write.table(file = paste0("Gene_module_map_",Experiment_name,".txt"),data.frame(Gene = colnames(data),Module = dynamicColors),col.names = TRUE,quote = FALSE,row.names = FALSE,sep = "\t")
     write.table(table(dynamicColors), file = paste0("Modules_table_",Experiment_name,".txt"))
     
     sizeGrWindow(8,6)
@@ -470,3 +480,28 @@ pheatmap(data_topgenes_scaled,
          filename = "top_genes.png")
 
 }
+
+#### DEG heatmaps
+
+# anno_col = data.frame(Module = dynamicColors)
+# rownames(anno_col) = names(dynamicColors)
+# pheatmap(data_rlog_scaled[rownames(data_rlog_scaled) %in% degs_all,,drop = FALSE],show_rownames = FALSE,annotation_row = anno_col)
+
+AE = t(moduleEigengenes(data[,colnames(data) %in% degs_all,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_all])[["averageExpr"]])
+rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
+png(filename = paste0("DEG_heamap_all_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
+pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (all changes)",fontsize = 20)
+while(!is.null(dev.list())) dev.off()
+
+AE = t(moduleEigengenes(data[,colnames(data) %in% degs_up,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_up])[["averageExpr"]])
+rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
+png(filename = paste0("DEG_heamap_up_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
+pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (upregulated)",fontsize = 20)
+while(!is.null(dev.list())) dev.off()
+
+AE = t(moduleEigengenes(data[,colnames(data) %in% degs_down,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_down])[["averageExpr"]])
+rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
+png(filename = paste0("DEG_heamap_down_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
+pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (downregulated)",fontsize = 20)
+while(!is.null(dev.list())) dev.off()
+
