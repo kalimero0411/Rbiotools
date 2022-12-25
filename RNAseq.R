@@ -440,6 +440,7 @@ if(exists("GO_file")){
   colnames(GO_table)[3:5] = c("Term","Ontology","Definition")
   write.table(x = GO_table,file = "GO_table_info.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
   write.table(x = GO_table[,c("Gene","GO_ID")],file = "GO_table.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = c("(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology == "BP","Gene"],gsub(x = GO_table[GO_table$Ontology == "BP","GO_ID"],pattern = "GO:",replacement = ""),sep = " = ")),file = "BP_BinGO.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
 }
 
 ##### Load custom functions #####
@@ -1335,7 +1336,6 @@ environment(pheatmap_seed) = environment(pheatmap)
       deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
       deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < alpha & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
       write.table(deseq_results_sig[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
-      write.table(deseq_results_sig[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
     }
     rm(temp_results)
     
@@ -1372,14 +1372,29 @@ environment(pheatmap_seed) = environment(pheatmap)
       #####    Create count matrix heat map    ######
       deseq_sig = rownames(deseq_results_sig[[compare_var]])
       DE_genes_sig = deseq_sig
+      DE_genes_sig_up = rownames(deseq_results_sig[[compare_var]][deseq_results_sig[[compare_var]][["log2FoldChange"]] > 0,,drop = FALSE])
+      DE_genes_sig_down = rownames(deseq_results_sig[[compare_var]][deseq_results_sig[[compare_var]][["log2FoldChange"]] < 0,,drop = FALSE])
       if(remove_isoforms){
         DE_genes_sig = unique(sub(pattern = isoform_pattern,replacement = "",x = DE_genes_sig))
+        DE_genes_sig_up = unique(sub(pattern = isoform_pattern,replacement = "",x = DE_genes_sig_up))
+        DE_genes_sig_down = unique(sub(pattern = isoform_pattern,replacement = "",x = DE_genes_sig_down))
       }
       write.table(x = DE_genes_sig,
                   file = paste0(rlog_vst,"/Significant_DEGs/Significant_DEGs_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_all.txt"),
                   quote = FALSE,
                   row.names = FALSE,
                   col.names = FALSE)
+      write.table(x = DE_genes_sig_up,
+                  file = paste0(rlog_vst,"/Significant_DEGs/Significant_DEGs_up_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_all.txt"),
+                  quote = FALSE,
+                  row.names = FALSE,
+                  col.names = FALSE)
+      write.table(x = DE_genes_sig_down,
+                  file = paste0(rlog_vst,"/Significant_DEGs/Significant_DEGs_down_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_all.txt"),
+                  quote = FALSE,
+                  row.names = FALSE,
+                  col.names = FALSE)
+      
       if(exists("k_clusters")){
         for(k in 1:k_clusters){
         DE_genes_sig = deseq_sig[deseq_sig %in% km.table[km.table$Cluster == k,]$rn]
