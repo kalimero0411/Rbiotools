@@ -408,8 +408,6 @@ if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotat
 if(any(!section %in% "Run settings")){
 ##### Load GO annotation #####
 if(exists("GO_file")){
-  cat("##### Downloading GO terms #####\n")
-  GO_terms = c(as.list(GO.db::GOTERM),as.list(GO.db::GOSYNONYM))
   delim_fun = function(GO_file){
     GO_temp = read.table(GO_file,sep = "\t")
     if(any(lengths(gregexpr(pattern = "GO",GO_temp[,2])) > 1)){
@@ -421,26 +419,18 @@ if(exists("GO_file")){
     }
   }
   geneGO = delim_fun(GO_file)
-  GO_table = data.frame(Gene = rep(names(lengths(geneGO)),lengths(geneGO)),GO_ID = unlist(geneGO,use.names = FALSE))
-  # GO_table = data.frame(Gene = unique(GO_table$V1), GO_ID = unlist(bplapply(unique(GO_table$V1),function(x){
-  #   return(paste(GO_table[GO_table$V1 %in% x,"V2"],collapse = ";"))
-  # })))
-  cat("##### Applying GO terms #####\n")
-  GO_table_temp = as.data.frame(matrix(unlist(bplapply(unique(GO_table[["GO_ID"]]),function(x){
-    if(x %in% names(GO_terms)){
-      return(c(attr(GO_terms[[x]],which = "Term",exact = TRUE),
-               attr(GO_terms[[x]],which = "Ontology",exact = TRUE),
-               attr(GO_terms[[x]],which = "Definition",exact = TRUE)))
-    }else{
-      return(rep(NA_character_,3))
-    }})),
-    ncol = 3,byrow = TRUE),row.names = unique(GO_table[["GO_ID"]]))
-  GO_table = cbind(GO_table,GO_table_temp[match(GO_table[["GO_ID"]],rownames(GO_table_temp)),])
-  rm(GO_table_temp)
-  colnames(GO_table)[3:5] = c("Term","Ontology","Definition")
+  cat("##### Downloading GO terms #####\n")
+  GO_terms = AnnotationDbi::select(GO.db,keys = keys(GO.db),columns = columns(GO.db))
+  GO_table = data.frame(Gene = rep(names(lengths(geneGO)),lengths(geneGO)),
+                        GOID = unlist(geneGO,use.names = FALSE))
+  GO_table[["Term"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"TERM"]
+  GO_table[["Ontology"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"ONTOLOGY"]
+  GO_table[["Definition"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"DEFINITION"]
   write.table(x = GO_table,file = "GO_table_info.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = GO_table[,c("Gene","GO_ID")],file = "GO_table.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = c("(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology == "BP","Gene"],gsub(x = GO_table[GO_table$Ontology == "BP","GO_ID"],pattern = "GO:",replacement = ""),sep = " = ")),file = "BP_BinGO.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = GO_table[,c("Gene","GOID")],file = "GO_table.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = c("(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = "BP_BinGO.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = c("(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = "CC_BinGO.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = c("(type=Molecular Function)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "MF","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "MF","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = "MF_BinGO.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
 }
 
 ##### Load custom functions #####
@@ -1431,6 +1421,36 @@ environment(pheatmap_seed) = environment(pheatmap)
       
       ######       PCA DEGs       ######
       if("Dispersion estimates, PCAs and PCoAs" %in% section){
+      
+        # Create Volcano plot
+        volcano_data = deseq_results[[compare_var]][,c("log2FoldChange","padj")]
+      volcano_data[["Expression"]] = apply(volcano_data,MARGIN = 1,function(x){
+        if(abs(as.numeric(x[1])) >= 1 & as.numeric(x[2]) < 0.05){
+          if(as.numeric(x[1]) > 0){
+            "Up-regulated"
+          }else{
+            "Down-regulated"
+          }
+          }else{
+          "Unchanged"
+          }
+        })
+      
+      volcano_plot = ggplot(volcano_data, aes(log2FoldChange, -log(padj,10))) +
+        geom_point(aes(color = Expression,alpha = Expression), size = 3) +
+        xlab(expression("log"[2]*"FC")) + 
+        ylab(expression("-log"[10]*"FDR")) +
+        scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
+        scale_alpha_manual(values = c(1,0.25,1)) +
+        guides(colour = guide_legend(override.aes = list(size = 3))) +
+        geom_hline(yintercept = -log(0.05,10), linetype="dashed") +
+        geom_vline(xintercept = c(-1,1), linetype="dashed") +
+        theme(text = element_text(size = 30))
+      
+      png(filename = paste0("Volcano_",rlog_vst,"_",genes_isoforms,"_",compare_var,".png"),width = 1920,height = 1080,units = "px")
+      print(volcano_plot)
+      while (!is.null(dev.list())){dev.off()}
+      
       if(!is.null(attr(deseq_results[[compare_var]],which = "factor")) & length(deseq_sig) > 0){
       PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]] = plotPCA_PC123(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),returnData = TRUE)
       if(!is.null(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]])){
@@ -1501,7 +1521,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                         row.names = FALSE,
                         col.names = FALSE,
                         sep = "\t")
-            write.table(x = GO_table[GO_table[["Gene"]] %in% DE_genes_sig,c("Gene","GO_ID")],
+            write.table(x = GO_table[GO_table[["Gene"]] %in% DE_genes_sig,c("Gene","GOID")],
                         file = paste0(rlog_vst,"/goseq_GO_annotation/Annotation_table_sig/Annotation_table_sig_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_all.txt"),
                         quote = FALSE,
                         row.names = FALSE,
@@ -1518,7 +1538,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                         row.names = FALSE,
                         col.names = FALSE,
                         sep = "\t")
-            write.table(x = GO_table[GO_table[["Gene"]] %in% DE_genes_sig,c("Gene","GO_ID")],
+            write.table(x = GO_table[GO_table[["Gene"]] %in% DE_genes_sig,c("Gene","GOID")],
                         file = paste0(rlog_vst,"/goseq_GO_annotation/Annotation_table_sig/Annotation_table_sig_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,".txt"),
                         quote = FALSE,
                         row.names = FALSE,
