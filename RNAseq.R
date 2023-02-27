@@ -62,6 +62,7 @@ if(!interactive()){
                            "--heatmap_no_clust","Cluster rows in heatmaps",
                            "--GO_file","Path to GO annotation file",
                            "--NOISeq","Perform NOISeq correction (ARSyNseq: counts | proportion | FDR)",
+                           "--venn_go","0 = None, 1 = Up-regulated, 2 = Down-regulated, 3 = Both (Default = 0; Multiple input possible)",
                            "--t","Number of compute threads",
                            "--arg","Additional R arguments (multiple arguments in separate flags)")
                   ,ncol = 2,byrow = TRUE)
@@ -138,6 +139,13 @@ if(!interactive()){
     random_seed = as.numeric(args[["seed"]])
   }else{
     random_seed = 123
+  }
+  if("venn_go" %in% names(args)){
+    venn_GO = as.numeric(args[[names(args) %in% "venn_go"]])
+  }else{
+    if(!exists("venn_GO")){
+      venn_GO = 0
+    }
   }
   threads = as.numeric(args[["t"]])
   
@@ -251,7 +259,7 @@ if("Run settings" %in% section){
     gene_length = data.frame(length = gtf[,5] - gtf[,4],row.names = gtf[["names"]])
   }
     }
-  if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Remove isoforms for annotation?",graphics = TRUE) == "Yes"){
+  if(select.list(choices = c("No","Yes"),multiple = FALSE,title = "Remove isoforms for annotation?",graphics = TRUE) == "Yes"){
     remove_isoforms = TRUE
     isoform_pattern = readline(prompt = "Input regular expression for isoform removal: ")
   }else{
@@ -393,6 +401,7 @@ FDR_cutoff = as.numeric(readline(prompt = "Choose FDR cutoff: "))
 rlog_vst = select.list(choices = c("rlog","VST"),multiple = FALSE,title = "Select transformation",graphics = TRUE)
 NOISeq_correction = select.list(choices = c("No","Yes"),multiple = FALSE,title = "NOISeq correction?",graphics = TRUE) == "Yes"
 random_seed = as.numeric(readline(prompt = "Select seed value for random number generator: "))
+venn_GO = list("None" = 0,"Only Up-regulated" = 2,"Only Down-regulated" = 3,"Both" = 1,"All changes" = 1:3)[[select.list(choices = c("None","Only Up-regulated","Only Down-regulated","Both","All changes"),multiple = FALSE,title = "GO enrichment for Venn subsets",graphics = TRUE)]]
 
 if(all(!"Optimize K-means" %in% section,"K-means clustering" %in% section)){
   k_clusters = as.numeric(readline(prompt = "Select number of clusters (k): "))
@@ -426,11 +435,11 @@ if(exists("GO_file")){
   GO_table[["Term"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"TERM"]
   GO_table[["Ontology"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"ONTOLOGY"]
   GO_table[["Definition"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"DEFINITION"]
-  write.table(x = GO_table,file = "GO_table_info.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = GO_table[,c("Gene","GOID")],file = "GO_table.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = c("(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = "BP_BinGO.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = c("(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = "CC_BinGO.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = c("(type=Molecular Function)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "MF","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "MF","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = "MF_BinGO.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = GO_table,file = paste0("GO_table_info_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = GO_table[,c("Gene","GOID")],file = paste0("GO_table_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = c("(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_BP_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = c("(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_CC_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+  write.table(x = c("(type=Molecular Function)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "MF","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "MF","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_MF_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
 }
 
 ##### Load custom functions #####
@@ -1736,12 +1745,8 @@ environment(pheatmap_seed) = environment(pheatmap)
                          useInfo = "all",
                          pdfSW = TRUE)
               GO_DEGs_df = GenTable(object = sampleGOdata,classicFisher = enrich_result,topNodes = sum(enrich_result@score <= FDR_cutoff))
-              GO_DEGs_df[["Term"]] = sapply(GO_DEGs_df$GO.ID,function(x){
-                return(GO_terms[[x]]@Term)
-              })
-              GO_DEGs_df[["Definition"]] = sapply(GO_DEGs_df$GO.ID,function(x){
-                return(GO_terms[[x]]@Definition)
-              })
+              GO_DEGs_df[["Term"]] = GO_terms$TERM[match(GO_DEGs_df$GO.ID,table = GO_terms$GOID)]
+              GO_DEGs_df[["Definition"]] = GO_terms$DEFINITION[match(GO_DEGs_df$GO.ID,table = GO_terms$GOID)]
               write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
               
               if("Wordcloud" %in% section){
@@ -1771,8 +1776,8 @@ environment(pheatmap_seed) = environment(pheatmap)
         }
         dir.create(paste0(rlog_vst,"/top_GO_annotation/topGO_graphs"),showWarnings = FALSE, recursive = TRUE)
         dir.create(paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs"),showWarnings = FALSE)
-        if(exists("venn_calc")){
-          lapply(names(venn_calc),function(x){
+        if(exists("venn_calc") & any(venn_GO > 1)){
+          lapply(names(venn_calc)[venn_GO],function(x){
                    lapply(venn_calc[[x]],function(y){
                      sapply(y,function(z){
                        write.table(z,file = paste0(rlog_vst,"/Significant_DEGs/Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
