@@ -3,7 +3,7 @@
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
              "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","rgl","ape","cluster","data.table",
              "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils","VennDiagram","wordcloud",
-             "tm","topGO","Rgraphviz","NOISeq")
+             "tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite")
 
 if(!"bcbioRNASeq" %in% rownames(installed.packages())){
   install.packages(
@@ -63,6 +63,7 @@ if(!interactive()){
                            "--GO_file","Path to GO annotation file",
                            "--NOISeq","Perform NOISeq correction (ARSyNseq: counts | proportion | FDR)",
                            "--venn_go","0 = None, 1 = Up-regulated, 2 = Down-regulated, 3 = Both (Default = 0; Multiple input possible)",
+                           "--ensembl_species","Select Ensembl species ID (Overrides existing)",
                            "--t","Number of compute threads",
                            "--arg","Additional R arguments (multiple arguments in separate flags)")
                   ,ncol = 2,byrow = TRUE)
@@ -147,8 +148,11 @@ if(!interactive()){
       venn_GO = 0
     }
   }
+  if("ensembl_species" %in% names(args)){
+    species_ID = unnames(args[["ensembl_species"]])
+  }
   threads = as.numeric(args[["t"]])
-  
+
   ##### Additional arguments #####
   invisible(
     sapply(
@@ -158,19 +162,19 @@ if(!interactive()){
       }
       )
     )
-  
+
   cat("Working directory: ",getwd(),"\n",sep = "")
   cat("Experiment name: ",Experiment_name,"\n",sep = "")
   cat("Number of threads: ",threads,"\n",sep = "")
   cat("Running sections: ",paste(section,collapse = " | "),"\n",sep = "")
-  
+
   ##### Register threads #####
   if(.Platform$OS.type == "unix"){
     register(BPPARAM = MulticoreParam(workers = threads))
   }else{
     register(BPPARAM = SnowParam(workers = threads))
   }
-  
+
   ##### RData output ######
   .classes = NULL
   for(.obj in ls()){
@@ -178,9 +182,9 @@ if(!interactive()){
   }
   prmatrix(matrix(data = c(ls(),.classes),nrow = length(ls()),ncol = 2),quote = FALSE,rowlab = rep("",length(ls())),collab = rep("",2))
   rm(.classes,.obj)
-  
+
   }else{
-    
+
 threads = detectCores()
 
 ##### Register threads #####
@@ -239,7 +243,7 @@ if("Run settings" %in% section){
   # Get mapper output and factor number
   Mapper = select.list(choices = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),multiple = FALSE,title = "Select Mapper",graphics = TRUE)
   input_path = path.expand(rstudioapi::selectDirectory(caption = "Choose mapping output directory: ",path = getwd()))
-  
+
   # Lengths from GTF file
   if(Mapper == "Counts" | Mapper == "HTseq-count"){
     genes_isoforms = "genes"
@@ -265,12 +269,12 @@ if("Run settings" %in% section){
   }else{
     remove_isoforms = FALSE
   }
-  
+
   if(Mapper == "Kallisto" || Mapper == "Salmon"){
     genes_isoforms = "genes"
     tx2gene = read.table(selectFile(caption = "Select transcript to gene file",path = getwd()))
   }
-  
+
   if(Mapper == "Counts"){
     count_genes = as.numeric(readline(prompt = "Select gene column: "))
     if(!exists("gtf")){
@@ -278,7 +282,7 @@ if("Run settings" %in% section){
     }
     count_column = as.numeric(eval(expr = parse(text = readline(prompt = "Select counts column (set range e.g. 4:7): "))))
   }
-  
+
   # Create experimental design
   cat("Text file: column 1 sample names with title, column 2 file path with title, and the first row of the rest of the columns as factor names\n")
   meta_input = select.list(choices = c("Text file","Manual input"),multiple = FALSE,title = "Input method",graphics = TRUE)
@@ -304,21 +308,21 @@ if("Run settings" %in% section){
       }
     }
   }else{
-    
+
     # RSEM input
     if(Mapper == "RSEM"){
       genes_isoforms = select.list(choices = c("genes","isoforms"),multiple = FALSE,title = "Select analysis of genes or isoforms",graphics = TRUE)
       file_names = list.files(path = input_path,pattern = paste0(".",genes_isoforms,".results"),full.names = TRUE)
     }
-    
+
     # Kallisto input
     if(Mapper == "Kallisto"){
       file_names = list.files(path = input_path,pattern = "_abundance.tsv",full.names = TRUE)
     }
-    
+
     if(Mapper == "Counts" | Mapper == "HTseq-count"){
       file_names = rchoose.files(caption = "Select count file(s): ",multi = TRUE)
-      
+
       # HTseq-count input
       # if(Mapper == "HTseq-count"){
       #   if(Sys.info()[["sysname"]] == "Linux"){
@@ -333,9 +337,9 @@ if("Run settings" %in% section){
       #     invisible(readline(prompt="Press [enter] to continue"))
       #   }
       # }
-      
+
     }
-    
+
   factors = c()
   while(TRUE){
   factors = c(factors,readline(prompt = "Add factor [blank = finish]: "))
@@ -348,14 +352,14 @@ if("Run settings" %in% section){
                                              nrow = length(file_names),
                                              ncol = length(factors),
                                              dimnames = list(file_names,factors)))
-  
+
   # Select sample names
   if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Select sample names?",graphics = TRUE)=="Yes"){
     for(i in 1:nrow(experimental_design)){
       rownames(experimental_design)[i] = readline(prompt = paste0("Select name for sample ",rownames(experimental_design)[i],": "))
     }
   }
-  
+
   # Insert factors
   for(i in factors){
     for(j in 1:nrow(experimental_design)){
@@ -364,7 +368,7 @@ if("Run settings" %in% section){
     experimental_design[[i]] = as.factor(experimental_design[[i]])
   }
   }
-  
+
   # Select variable colors
   color_select = list()
   if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Select colors for variables?",graphics = TRUE)=="Yes"){
@@ -377,7 +381,7 @@ if("Run settings" %in% section){
     }
     rm(color_list)
   }
-  
+
   # Select variable reference
   primary_factor = select.list(choices = colnames(experimental_design),multiple = FALSE,title = "Select primary factor",graphics = TRUE)
   variable_ref = c()
@@ -407,8 +411,15 @@ if(all(!"Optimize K-means" %in% section,"K-means clustering" %in% section)){
   k_clusters = as.numeric(readline(prompt = "Select number of clusters (k): "))
   }
 
-if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Load GO annotations?",graphics = TRUE) == "Yes"){
+GO_select = select.list(choices = c("Yes","From Ensembl","No"),multiple = FALSE,title = "Load GO annotations?",graphics = TRUE)
+if(GO_select == "Yes"){
   GO_file = selectFile(caption = "Choose GO annotation file:",path = getwd())
+}
+if(GO_select == "From Ensembl"){
+  Ensembl_species = fromJSON("https://biit.cs.ut.ee/gprofiler/api/util/organisms_list/")
+  Ensembl_species = Ensembl_species[order(Ensembl_species$display_name),]
+  species_ID = Ensembl_species[Ensembl_species$display_name %in% select.list(choices = Ensembl_species[,"display_name"],
+                                                                multiple = FALSE),"id"]
 }
     save.image(paste0(Experiment_name,".RData"))
 }
@@ -428,18 +439,6 @@ if(exists("GO_file")){
     }
   }
   geneGO = delim_fun(GO_file)
-  cat("##### Downloading GO terms #####\n")
-  GO_terms = AnnotationDbi::select(GO.db,keys = keys(GO.db),columns = columns(GO.db))
-  GO_table = data.frame(Gene = rep(names(lengths(geneGO)),lengths(geneGO)),
-                        GOID = unlist(geneGO,use.names = FALSE))
-  GO_table[["Term"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"TERM"]
-  GO_table[["Ontology"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"ONTOLOGY"]
-  GO_table[["Definition"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"DEFINITION"]
-  write.table(x = GO_table,file = paste0("GO_table_info_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = GO_table[,c("Gene","GOID")],file = paste0("GO_table_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = c("(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_BP_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = c("(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_CC_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-  write.table(x = c("(type=Molecular Function)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "MF","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "MF","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_MF_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
 }
 
 ##### Load custom functions #####
@@ -503,7 +502,7 @@ PCA_3D = function(PC_factor,pca_type){
       try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",getwd(),"/animation_merge/frame-%03d.png ./",rlog_vst,"/PCA/PCA_3D_",rlog_vst,"_",genes_isoforms,"_",run_factor,".mp4")))
       unlink("animation_merge",recursive = TRUE)
     }
-    
+
     # Multiple factor 3D PCAs
     if("Multiple_factor" %in% names(PCA_data) & grepl(pattern = 2,pca_type)){
       for(PCA_comp in names(PCA_data[["Multiple_factor"]])){
@@ -536,7 +535,7 @@ PCA_3D = function(PC_factor,pca_type){
         }
       }
     }
-    
+
     # DEGs 3D PCAs
     if("DEGs" %in% names(PCA_data) & grepl(pattern = 3,pca_type)){
       if(run_factor %in% names(PCA_data[["DEGs"]])){
@@ -840,7 +839,7 @@ pheatmap_seed = function(mat,
   invisible(structure(list(tree_row = tree_row, tree_col = tree_col, kmeans = km, gtable = gt), class = "pheatmap"))
 }
 
-# Set the environment for pheatmap_seed to that of pheatmap  
+# Set the environment for pheatmap_seed to that of pheatmap
 environment(pheatmap_seed) = environment(pheatmap)
 }
 #####    Start run    #####
@@ -862,7 +861,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   gene_length = RSEM_counts$length
   count_table = assay(data_set)
   }
-    
+
     if(Mapper == "Kallisto"){
       names(file_names) = rownames(experimental_design)
       kallisto_counts = tximport(files = file_names,type = "kallisto", tx2gene = tx2gene,countsFromAbundance = "lengthScaledTPM")
@@ -872,7 +871,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       gene_length = kallisto_counts$length
       count_table = assay(data_set)
     }
-    
+
     if(Mapper == "Salmon"){
       names(file_names) = rownames(experimental_design)
       salmon_counts = tximport(files = file_names,
@@ -885,7 +884,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       gene_length = salmon_counts$length
       count_table = assay(data_set)
     }
-    
+
   if(Mapper == "HTseq-count"){
     sampleTable = data.frame(sampleName = rownames(experimental_design),
                              filename = basename(file_names))
@@ -894,7 +893,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     count_table = assay(data_set)
     count_table = count_table[!grepl(pattern = "^N_unmapped$|^N_multimapping$|^N_noFeature$|^N_ambiguous$",rownames(count_table)),]
   }
-    
+
   if(Mapper == "Counts"){
     for(i in file_names){
       cat("Reading file: ",i,"\n", sep = "")
@@ -917,7 +916,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
     }
         colnames(count_table) = rownames(experimental_design)
-    
+
   }
     if(NOISeq_correction){
       count_table = round(ARSyNseq(data = readData(data = filtered.data(dataset = count_table,
@@ -940,7 +939,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                                         tidy = FALSE,
                                         ignoreRank = FALSE)
     }
-    
+
       if(!Mapper %in% c("Kallisto","Salmon")){
       TPM = if(ncol(count_table) == ncol(gene_length)){
         t(t(count_table/gene_length) * 1e6 / colSums(count_table/gene_length))
@@ -950,7 +949,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
     write.table(TPM,file = "TPM.txt",quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
     write.table(TPM[rowSums(TPM) > 0,],file = "TPM_non_zero.txt",quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
-    
+
       if("bcbioRNASeq" %in% rownames(installed.packages())){
         library(bcbioRNASeq)
         TMM = tmm(count_table)
@@ -961,7 +960,29 @@ environment(pheatmap_seed) = environment(pheatmap)
     for(i in factors){
       data_set@colData[[i]] = relevel(data_set@colData[[i]], ref = variable_ref[i])
     }
-
+    
+    if(exists("species_ID")){
+      geneGO = gconvert(rownames(count_table),organism = species_ID,target = "GO")[,c("input","target")]
+      gene_names = geneGO$input
+      geneGO = lapply(geneGO$input,function(x) geneGO[geneGO$input %in% x,"target"])
+      names(geneGO) = gene_names
+    }
+    
+    if(exists("species_ID") || exists("GO_file")){
+      cat("##### Downloading GO terms #####\n")
+      GO_terms = AnnotationDbi::select(GO.db,keys = keys(GO.db),columns = columns(GO.db))
+      GO_table = data.frame(Gene = rep(names(lengths(geneGO)),lengths(geneGO)),
+                            GOID = unlist(geneGO,use.names = FALSE))
+      GO_table[["Term"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"TERM"]
+      GO_table[["Ontology"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"ONTOLOGY"]
+      GO_table[["Definition"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"DEFINITION"]
+      write.table(x = GO_table,file = paste0("GO_table_info_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      write.table(x = GO_table[,c("Gene","GOID")],file = paste0("GO_table_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      write.table(x = c("(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_BP_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      write.table(x = c("(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_CC_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      write.table(x = c("(type=Molecular Function)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "MF","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "MF","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_MF_",Experiment_name,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+    }
+    
   ##### Run DESeq2 #####
   cat("#####    Running DESeq2   ######\n")
   time_start=Sys.time()
@@ -975,7 +996,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_DESeq2_data.RData"))
   }
-  
+
 #####   Transform counts   #####
   if("Transformation" %in% section){
   if(rlog_vst == "rlog"){
@@ -990,7 +1011,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     data_set_transform = varianceStabilizingTransformation(data_set_DESeq,blind = FALSE)
     cat("VST transforming ",genes_isoforms," counts completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-    
+
   # Output for WGCNA
         data_vst = if(rlog_vst == "rlog"){
           assay(varianceStabilizingTransformation(data_set_DESeq,blind = FALSE))
@@ -1004,10 +1025,10 @@ environment(pheatmap_seed) = environment(pheatmap)
         }
         save(list = c("data_vst","data_rlog","experimental_design"), file = "WGCNA_data.RData")
         rm(data_vst,data_rlog,coldata)
-    
+
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","transformed_data.RData"))
   }
-  
+
   if(any(c("Heatmaps","Dispersion estimates, PCAs and PCoAs","Optimize K-means","K-means clustering","Hierarchial clustering","MA-plot","DEG heatmap","goseq GO analysis","topGO analysis","Wordcloud","Venn diagram","Variable heatmap and report") %in% section)){
     #####   Data matrix   #####
     dir.create(rlog_vst,showWarnings = FALSE)
@@ -1019,7 +1040,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     # }
     data_set_matrix_scaled = scale(data_set_matrix, center=TRUE, scale=TRUE)
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
-    
+
     if("Heatmaps" %in% section){
     cat("#####    Creating matrices and heatmaps    ######\n")
       time_start=Sys.time()
@@ -1053,7 +1074,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
     cat("Matrices and heatmaps completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     }
-    
+
   if("Dispersion estimates, PCAs and PCoAs" %in% section){
   #####   Dispersion estimates   #####
   time_start=Sys.time()
@@ -1088,8 +1109,8 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
-      
-      
+
+
       png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_PC2.png"),width = 1920,height = 1080,units = "px")
       plot_temp = ggplot(PCA_data[["Single_factor"]][[i]],
                      aes(PC2, PC3, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["name"]])) +
@@ -1110,7 +1131,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       while (!is.null(dev.list())){dev.off()}
       }
   }
-  
+
   #####   Multi-factor PCA and PCoA   #####
   if(length(factors) > 1){
   for(i in factors[-length(factors)]){
@@ -1137,7 +1158,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
     print(plot_temp)
     while (!is.null(dev.list())){dev.off()}
-    
+
     png(filename = paste0(rlog_vst,"/PCA/PCA_",rlog_vst,"_",genes_isoforms,"_",i,"_vs_",j,"_PC2.png"),width = 1920,height = 1080,units = "px")
     plot_temp = ggplot(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]],
                    aes(PC2, PC3, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["name"]])) +
@@ -1151,14 +1172,14 @@ environment(pheatmap_seed) = environment(pheatmap)
             geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
             guides(color=guide_legend(override.aes=list(fill=NA)))
     if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]])) > 3){
-      plot_temp = plot_temp +      
+      plot_temp = plot_temp +
       stat_ellipse(geom = "polygon", alpha = 0.5, aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]) > 3)) +
       labs(fill = "Ellipse")
     }
     print(plot_temp)
     while (!is.null(dev.list())){dev.off()}
     }
-    
+
     data_set_deseq_pcoa = pcoa(vegdist(t(data_set_matrix),method="manhattan")/1000)
     pcoa_scores = data_set_deseq_pcoa$vectors
     png(filename = paste0(rlog_vst,"/PCA/PCoA_",rlog_vst,"_",genes_isoforms,"_",i,"_",j,".png"),width = 1920,height = 1080,units = "px")
@@ -1199,7 +1220,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
   cat("PCAs and PCoAs completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-    
+
   #######      Calculate optimal K      #######
   if("Optimize K-means" %in% section){
     time_start=Sys.time()
@@ -1218,7 +1239,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     cat("Completed K optimization in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
   }
-  
+
   #######      K-means clustering      #########
   if("K-means clustering" %in% section){
     cat("#####    K-means clustering and creating matplots    ######\n")
@@ -1257,7 +1278,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
       cat("Completed K-means clustering in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-  
+
   ##### Create and plot Hierarchical clusters #####
   if("Hierarchial clustering" %in% section){
     cat("#####    Hierarchial clustering    ######\n")
@@ -1286,7 +1307,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     cat("Completed Hierarchical clustering in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
   }
-  
+
   #####   MA summary, MA plots, Gene heat map and GO annotation #####
   if("MA-plot" %in% section){
     time_start=Sys.time()
@@ -1300,14 +1321,14 @@ environment(pheatmap_seed) = environment(pheatmap)
     save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
     cat("MA summary and MA plots completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-    
+
   # if(remove_isoforms){
   #   gene_length = matrix(data = unlist(bplapply(X = unique(sub(pattern = isoform_pattern,replacement = "",x = rownames(gene_length))),FUN = function(x, y = gene_length){
   #     return(colMaxs(gene_length[grepl(pattern = x,x = rownames(gene_length)),,drop = FALSE]))
   #   })),ncol = ncol(gene_length),dimnames = list(unique(sub(pattern = isoform_pattern,replacement = "",x = rownames(gene_length))),colnames(gene_length)))
   #   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
   # }
-  
+
   ##### DEGs #####
   deseq_results = list()
   deseq_results_sig = list()
@@ -1336,9 +1357,9 @@ environment(pheatmap_seed) = environment(pheatmap)
       write.table(deseq_results_sig[[compare_var]], file = paste0(compare_var,"_deseq_results_",genes_isoforms,"_padj.txt"),quote = FALSE,sep = "\t")
     }
     rm(temp_results)
-    
+
   }
-  
+
   ## Interactions
   if(length(grep(pattern = ":",design_formula))){
   for(compare_var in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
@@ -1359,14 +1380,14 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
   }
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
-  
+
   dir.create(paste0(rlog_vst,"/Significant_DEGs"),showWarnings = FALSE)
   dir.create(paste0(rlog_vst,"/PCA"),showWarnings = FALSE)
   if(!exists("PCA_data")){
     PCA_data = list()
   }
   for(compare_var in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE)){
-      
+
       #####    Create count matrix heat map    ######
       deseq_sig = rownames(deseq_results_sig[[compare_var]])
       DE_genes_sig = deseq_sig
@@ -1392,7 +1413,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                   quote = FALSE,
                   row.names = FALSE,
                   col.names = FALSE)
-      
+
       if(exists("k_clusters")){
         for(k in 1:k_clusters){
         DE_genes_sig = deseq_sig[deseq_sig %in% km.table[km.table$Cluster == k,]$rn]
@@ -1427,10 +1448,10 @@ environment(pheatmap_seed) = environment(pheatmap)
         save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
         cat(" DEG heatmap completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
       }
-      
+
       ######       PCA DEGs       ######
       if("Dispersion estimates, PCAs and PCoAs" %in% section){
-      
+
         # Create Volcano plot
         volcano_data = deseq_results[[compare_var]][,c("log2FoldChange","padj")]
       volcano_data[["Expression"]] = apply(volcano_data,MARGIN = 1,function(x){
@@ -1444,10 +1465,10 @@ environment(pheatmap_seed) = environment(pheatmap)
           "Unchanged"
           }
         })
-      
+
       volcano_plot = ggplot(volcano_data, aes(log2FoldChange, -log(padj,10))) +
         geom_point(aes(color = Expression,alpha = Expression), size = 3) +
-        xlab(expression("log"[2]*"FC")) + 
+        xlab(expression("log"[2]*"FC")) +
         ylab(expression("-log"[10]*"FDR")) +
         scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
         scale_alpha_manual(values = c(1,0.25,1)) +
@@ -1455,11 +1476,11 @@ environment(pheatmap_seed) = environment(pheatmap)
         geom_hline(yintercept = -log(0.05,10), linetype="dashed") +
         geom_vline(xintercept = c(-1,1), linetype="dashed") +
         theme(text = element_text(size = 30))
-      
+
       png(filename = paste0("Volcano_",rlog_vst,"_",genes_isoforms,"_",compare_var,".png"),width = 1920,height = 1080,units = "px")
       print(volcano_plot)
       while (!is.null(dev.list())){dev.off()}
-      
+
       if(!is.null(attr(deseq_results[[compare_var]],which = "factor")) & length(deseq_sig) > 0){
       PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]] = plotPCA_PC123(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),returnData = TRUE)
       if(!is.null(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]])){
@@ -1482,7 +1503,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
-    
+
       png(filename = paste0(rlog_vst,"/PCA/PCA_DEGs_",rlog_vst,"_",genes_isoforms,"_",compare_var,"_PC2.png"),width = 1920,height = 1080,units = "px")
       plot_temp = ggplot(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]],
                          aes(PC2, PC3, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["name"]])) +
@@ -1504,7 +1525,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
       }
       }
-      
+
       #######     goseq GO annotation      #########
       if("goseq GO analysis" %in% section){
         time_start=Sys.time()
@@ -1554,14 +1575,14 @@ environment(pheatmap_seed) = environment(pheatmap)
                         col.names = FALSE,
                         sep = "\t")
           }
-        
+
         all_genes = rownames(deseq_results[[compare_var]])
         if(remove_isoforms){
           rownames(gene_length) = sub(pattern = isoform_pattern,replacement = "",x = rownames(gene_length))
           all_genes = unique(sub(pattern = isoform_pattern,replacement = "",x = all_genes))
         }
         gene_vector = as.integer(all_genes %in% DE_genes_sig)
-        
+
         # Create vector of gene lengths
         names(gene_vector) = all_genes
         gene_length_vector = rowMeans(gene_length[match(all_genes,rownames(gene_length)),,drop = FALSE])
@@ -1572,18 +1593,18 @@ environment(pheatmap_seed) = environment(pheatmap)
         while (!is.null(dev.list())){dev.off()}
         rownames(pwf) = names(gene_length_vector)
         write.table(x = pwf,file = paste0(rlog_vst,"/goseq_GO_annotation/PWF/PWF_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,".txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
-        
+
         # Estimate p-values for length-corrected DE genes
         pval = goseq(pwf = pwf,gene2cat = GO_table,method = "Wallenius")
         write.table(x = pval,file = paste0(rlog_vst,"/goseq_GO_annotation/Enrichment/GO_enriched_table_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,".txt"),quote = FALSE,row.names = FALSE)
-        
+
         # Bootstrap for comparison to p-value estimation
         GO_sample = goseq(pwf = pwf,gene2cat = GO_table,method = "Sampling",repcnt = 2000)
         png(filename = paste0(rlog_vst,"/goseq_GO_annotation/Bootstrap/GO_bootstrap_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,".png"),width = 1920,height = 1080,units = "px")
         plot(log10(pval[,2]), log10(GO_sample[match(pval[,1],GO_sample[,1]),2]),xlab=expression('Log'[10]*' (Wallenius p-values)'),ylab=expression('Log'[10]*' (Sampling p-values)'),xlim=c(-3,0))
         abline(0,1,col = 3,lty = 2)
         while (!is.null(dev.list())){dev.off()}
-        
+
         # Export table of FDR-corrected GO annotations
         write.table(x = pval$category[p.adjust(pval$over_represented_pvalue,method="BH") < FDR_cutoff],
                     file = paste0(rlog_vst,"/goseq_GO_annotation/Enrichment/GO_over_enriched_category_",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,".txt"),
@@ -1605,11 +1626,11 @@ environment(pheatmap_seed) = environment(pheatmap)
                     quote = FALSE,
                     row.names = FALSE,
                     col.names = FALSE)
-        
+
         }
         cat("goseq GO analysis completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
       }
-      
+
       ##### Venn Diagrams #####
       if("Venn diagram" %in% section){
         # Intersect function
@@ -1657,7 +1678,7 @@ environment(pheatmap_seed) = environment(pheatmap)
           res_list[[length(intersect_list)]] = intersect_list[[length(intersect_list)]]
           return(res_list)
         }
-        
+
         venn_list = list()
         venn_list[["all"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]]))
         venn_list[["up"]] = lapply(names(deseq_results_sig),function(x) rownames(deseq_results_sig[[x]])[deseq_results_sig[[x]][["log2FoldChange"]] > 0])
@@ -1665,13 +1686,13 @@ environment(pheatmap_seed) = environment(pheatmap)
         names(venn_list[["all"]]) = names(deseq_results_sig)
         names(venn_list[["up"]]) = names(deseq_results_sig)
         names(venn_list[["down"]]) = names(deseq_results_sig)
-        
+
         venn_calc = lapply(venn_list,venn_calculate)
         names(venn_calc) = names(venn_list)
-    
-        
+
+
         lapply(names(venn_list),function(venn_name){
-          
+
           # lapply(names(venn_list[[venn_name]]),function(venn_write){
           #   write.table(x = venn_list[[venn_name]][[venn_write]],
           #               file = paste0(rlog_vst,"/Significant_DEGs/Venn_Significant_DEGs_",venn_write,"_",venn_name,"_",rlog_vst,"_",genes_isoforms,".txt"),
@@ -1721,7 +1742,7 @@ environment(pheatmap_seed) = environment(pheatmap)
         })
         unlink("VennDiagram*.log")
       }
-      
+
       #######     topGO annotation      #########
       if("topGO analysis" %in% section){
         time_start=Sys.time()
@@ -1736,7 +1757,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                                annot = annFUN.gene2GO,
                                gene2GO = geneGO)
             enrich_result = runTest(sampleGOdata, statistic = "fisher",algorithm = "classic")
-            
+
             if(sum(enrich_result@score <= FDR_cutoff) > 0){
               printGraph(object = sampleGOdata,
                          result = enrich_result,
@@ -1748,7 +1769,7 @@ environment(pheatmap_seed) = environment(pheatmap)
               GO_DEGs_df[["Term"]] = GO_terms$TERM[match(GO_DEGs_df$GO.ID,table = GO_terms$GOID)]
               GO_DEGs_df[["Definition"]] = GO_terms$DEFINITION[match(GO_DEGs_df$GO.ID,table = GO_terms$GOID)]
               write.table(GO_DEGs_df,file = paste0(rlog_vst,"/top_GO_annotation/topGO_DEGs/",compare_var,"_",rlog_vst,"_",genes_isoforms,"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
-              
+
               if("Wordcloud" %in% section){
                 cat("Creating enriched DEG Wordclouds...\n",sep = "")
                 DEG_table = table(GO_DEGs_df[,"Term"])
@@ -1814,7 +1835,7 @@ environment(pheatmap_seed) = environment(pheatmap)
         # try(system(command = paste0("for i in $(find . -type f -name "*.ps"); do convert -density 800 -rotate 90 $i ${i/.ps/.png} && rm -f $i; done")))
         cat("topGO analysis completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
       }
-      
+
       ##### Create Wordcloud #####
       if("Wordcloud" %in% section){
         dir.create(paste0(rlog_vst,"/Wordcloud"),showWarnings = FALSE)
@@ -1862,7 +1883,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       }
   save.image(paste0(Experiment_name,"_",rlog_vst,"_",genes_isoforms,"_","analysis_data.RData"))
   }
-  
+
     if("Variable heatmap and report" %in% section){
   #####    Create variable distance heat map    ######
   cat("#####    Creating variable distance heat map    ######\n")
@@ -1885,7 +1906,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   finish(DESeq_report)
   rm(DESeq_report)
   }
-  
+
   if(length(grep(pattern = ":",design_formula))){
     for(int in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
     data_set_DESeq_int = data_set_DESeq[rownames(deseq_results_sig[[int]]),]
