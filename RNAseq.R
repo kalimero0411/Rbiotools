@@ -119,13 +119,13 @@ if(!interactive()){
   }
   
   if("alpha" %in% names(args)){
-    init_params[["alpha"]] = args[["alpha"]]
+    init_params[["alpha"]] = as.numeric(args[["alpha"]])
   }else{
     init_params[["alpha"]] = 0.05
   }
   
   if("FDR" %in% names(args)){
-    init_params[["FDR"]] = args[["FDR"]]
+    init_params[["FDR"]] = as.numeric(args[["FDR"]])
   }else{
     init_params[["FDR"]] = 0.05
   }
