@@ -86,13 +86,13 @@ if(!interactive()){
       stop(paste0("Select only one DESeq2 analysis (2,3 or 4)"),call. = TRUE)
     }
   }
-  cat("Loading RData file: ",args[["rdata"]],"\n",sep = "")
   if("rdata" %in% names(args)){
+    cat("Loading RData file: ",args[["rdata"]],"\n",sep = "")
     load(args[["rdata"]])
     args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   }
   init_params[["wd"]] = path.expand(args[["wd"]])
-  setwd(init_params[["Experiment_name"]])
+  setwd(init_params[["wd"]])
   init_params[["Experiment_name"]] = args[["name"]]
   if("input" %in% names(args)){
     init_params[["input_path"]] = path.expand(args[["input"]])
