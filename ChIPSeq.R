@@ -1,6 +1,6 @@
 ##### ChIP analysis #####
 
-packages=c("rChoiceDialogs","BiocParallel","parallel","TxDb.Hsapiens.UCSC.hg19.knownGene","ShortRead","RSQLite","QuasR","BSgenome",
+packages=c("rChoiceDialogs","BiocParallel","parallel","ShortRead","RSQLite","QuasR","BSgenome",
            "Rsamtools","rtracklayer","GenomicFeatures","Hmisc","Gviz","XML","mosaics","ChIPseeker","clusterProfiler",
            "ReactomePA","dada2","RMariaDB","DOSE","tools","R.utils")
 invisible(
@@ -119,11 +119,7 @@ if("Setup" %in% section){
 xls_files = NULL
 BED_files = NULL
 if("FASTQ" %in% section){
-  if(rselect.list(choices = c("Yes (paired-end)","No (single-end)"),multiple = FALSE,title = "Is the data paired-end?") == "Yes (paired-end)"){
-    paired = TRUE  
-  }else{
-    paired = FALSE
-  }
+  paired = rselect.list(choices = c("Paired-end","Single-end"),multiple = FALSE,title = "Paired or Single end?") == "Paired-end"
     }
 if("MACS2" %in% section){
   xls_files=rchoose.files(caption = "Select MACS2 peak.xls files",multi = TRUE)
