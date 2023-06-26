@@ -87,11 +87,13 @@ if(!interactive()){
     }
   }
   cat("Loading RData file: ",args[["rdata"]],"\n",sep = "")
-  load(args[["rdata"]])
-  args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
+  if("rdata" %in% names(args)){
+    load(args[["rdata"]])
+    args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
+  }
   init_params[["wd"]] = path.expand(args[["wd"]])
-  init_params[["Experiment_name"]] = args[["name"]]
   setwd(init_params[["Experiment_name"]])
+  init_params[["Experiment_name"]] = args[["name"]]
   if("input" %in% names(args)){
     init_params[["input_path"]] = path.expand(args[["input"]])
   }
