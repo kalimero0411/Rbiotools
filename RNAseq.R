@@ -33,6 +33,7 @@ if(!exists("init_params")){
 
 ###### Cluster commands ######
 if(!interactive()){
+  options(rgl.useNULL = TRUE)
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   must_args = c("wd","name","process")
   if(!all(must_args %in% names(args))){
@@ -1026,7 +1027,7 @@ environment(pheatmap_seed) = environment(pheatmap)
           assay(rlog(data_set_DESeq,blind = FALSE))
         }
         save(list = c("data_vst","data_rlog","experimental_design"), file = "WGCNA_data.RData")
-        rm(data_vst,data_rlog,coldata)
+        rm(data_vst,data_rlog)
 
   save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","transformed_data.RData"))
   }
@@ -1929,15 +1930,6 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
     if(exists("PCA_data")){
       save(list = c("PCA_data","experimental_design","PCA_3D","init_params"),file = "PCA_data.RData")
-    #   if(system("which xvfb-run",ignore.stdout = TRUE) == 0 & system("which ffmpeg",ignore.stdout = TRUE) == 0 & system("which 3D_PCA_run",ignore.stdout = TRUE) == 0){
-    #     try(system(paste0("xvfb-run 3D_PCA_run ",paste("--factor ",factors,sep = "",collapse = " ")," --wd ",init_params[["wd"]])))
-    #   }else{
-    #     cat("Install ",paste(c("xvfb","ffmpeg","3D_PCA")[as.logical(c(system("which xvfb-run",ignore.stdout = TRUE),
-    #                                                                   system("which ffmpeg", ignore.stdout = TRUE),
-    #                                                                   system("which 3D_PCA",ignore.stdout = TRUE)))],
-    #                          sep = "", collapse = " | "),"\n",sep = "")
-    #     cat("For 3D PCA movies run: xvfb-run 3D_PCA_run --factor your_factor --wd working_dir\n",sep = "")
-    #   }
     }
       save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","final_data.RData"))
   }
