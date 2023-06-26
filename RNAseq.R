@@ -141,8 +141,8 @@ if(!interactive()){
     init_params[["rlog_vst"]] = "rlog"
   }
   
-  if("design_formula" %in% names(args)){
-    init_params[["design_formula"]] = formula(args[["design"]])
+  if("design" %in% names(args)){
+    init_params[["design"]] = formula(args[["design"]])
   }
   if("reduced_formula" %in% names(args)){
     if("reduced" %in% names(args)){
@@ -327,7 +327,7 @@ if("Run settings" %in% init_params[["section"]]){
   # Select variable reference
   cat("Independent design: ~",paste(colnames(read.table(file = init_params[["exp_design"]],header = TRUE,row.names = 1,sep = "\t"))[-1],collapse = " + "),"\n",sep = "")
   cat("Interaction term = Factor1:Factor2 \n",sep = "")
-  init_params[["design_formula"]] = formula(readline(prompt = "Select main design formula: "))
+  init_params[["design"]] = formula(readline(prompt = "Select main design formula: "))
   cat("Reduced design, such as batch factor. No design = ~1","\n",sep = "")
   init_params[["reduced_formula"]] = formula(readline(prompt = "Select reduced design formula: "))
   if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Cluster rows in heatmaps?",graphics = TRUE)=="Yes"){
@@ -861,7 +861,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     RSEM_counts = tximport(files = file_names,type = "rsem",txIn = TRUE,txOut = TRUE)
   }
   RSEM_counts$length[RSEM_counts$length == 0] = 1
-  data_set = DESeqDataSetFromTximport(txi = RSEM_counts,colData = experimental_design,design = init_params[["design_formula"]])
+  data_set = DESeqDataSetFromTximport(txi = RSEM_counts,colData = experimental_design,design = init_params[["design"]])
   gene_length = RSEM_counts$length
   count_table = assay(data_set)
   }
@@ -871,7 +871,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       kallisto_counts = tximport(files = file_names,type = "kallisto", tx2gene = tx2gene,countsFromAbundance = "lengthScaledTPM")
       kallisto_counts$length[kallisto_counts$length == 0] = 1
       TPM = kallisto_counts$abundance
-      data_set = DESeqDataSetFromTximport(txi = kallisto_counts,colData = experimental_design,design = init_params[["design_formula"]])
+      data_set = DESeqDataSetFromTximport(txi = kallisto_counts,colData = experimental_design,design = init_params[["design"]])
       gene_length = kallisto_counts$length
       count_table = assay(data_set)
     }
@@ -884,7 +884,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                            countsFromAbundance = "lengthScaledTPM")
       salmon_counts$length[salmon_counts$length == 0] = 1
       TPM = salmon_counts$abundance
-      data_set = DESeqDataSetFromTximport(txi = salmon_counts,colData = experimental_design,design = init_params[["design_formula"]])
+      data_set = DESeqDataSetFromTximport(txi = salmon_counts,colData = experimental_design,design = init_params[["design"]])
       gene_length = salmon_counts$length
       count_table = assay(data_set)
     }
@@ -893,7 +893,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     sampleTable = data.frame(sampleName = rownames(experimental_design),
                              filename = basename(file_names))
     sampleTable = cbind(sampleTable,experimental_design)
-    data_set = DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,directory = init_params[["input_path"]],design = init_params[["design_formula"]])
+    data_set = DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,directory = init_params[["input_path"]],design = init_params[["design"]])
     count_table = assay(data_set)
     count_table = count_table[!grepl(pattern = "^N_unmapped$|^N_multimapping$|^N_noFeature$|^N_ambiguous$",rownames(count_table)),]
   }
@@ -940,7 +940,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       gene_length = gene_length[rownames(count_table),,drop = FALSE]
       data_set = DESeqDataSetFromMatrix(countData = count_table,
                                         colData = experimental_design,
-                                        design = init_params[["design_formula"]],
+                                        design = init_params[["design"]],
                                         tidy = FALSE,
                                         ignoreRank = FALSE)
     }
@@ -1361,7 +1361,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
 
   ## Interactions
-  if(length(grep(pattern = ":",init_params[["design_formula"]]))){
+  if(length(grep(pattern = ":",init_params[["design"]]))){
   for(compare_var in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
     cat("#####    Getting results for interaction: ",compare_var,"   ######\n",sep = "")
     temp_results = results(data_set_DESeq, name = compare_var,parallel = TRUE)
@@ -1907,7 +1907,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   rm(DESeq_report)
   }
 
-  if(length(grep(pattern = ":",init_params[["design_formula"]]))){
+  if(length(grep(pattern = ":",init_params[["design"]]))){
     for(int in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
     data_set_DESeq_int = data_set_DESeq[rownames(deseq_results_sig[[int]]),]
       for(i in factors){
