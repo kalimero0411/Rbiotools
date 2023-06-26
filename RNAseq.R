@@ -3,7 +3,7 @@
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
              "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","rgl","ape","cluster","data.table",
              "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils","VennDiagram","wordcloud",
-             "tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite")
+             "tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite","bcbioRNASeq")
 
 if(!"bcbioRNASeq" %in% rownames(installed.packages())){
   BiocManager::install("MultiAssayExperiment")
@@ -13,7 +13,6 @@ if(!"bcbioRNASeq" %in% rownames(installed.packages())){
     repos = c("https://r.acidgenomics.com",getOption("repos"))
   )
 }
-library("bcbioRNASeq")
 
 invisible(
   suppressMessages(
@@ -211,7 +210,7 @@ if(!interactive()){
     init_params[["random_seed"]] = 123
   }
   if("venn_go" %in% names(args)){
-    init_params[["venn_GO"]] = as.numeric(args[[names(args) %in% "venn_go"]])
+    init_params[["venn_GO"]] = as.numeric(unlist(strsplit(args[["venn_go"]],split = ",")))
   }else{
     if("venn_GO" %in% names(init_params)){
       init_params[["venn_GO"]] = 0
