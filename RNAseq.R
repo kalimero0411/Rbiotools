@@ -103,7 +103,7 @@ if(!interactive()){
   }
   
   if("mapper" %in% names(args)){
-    init_params[["Mapper"]] = grep(pattern = args[["Mapper"]],x = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),ignore.case = TRUE,value = TRUE)
+    init_params[["Mapper"]] = grep(pattern = args[["mapper"]],x = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),ignore.case = TRUE,value = TRUE)
   }
   init_params[["heatmap_row_clust"]] = !"heatmap_no_clust" %in% names(args)
   if("noiseq" %in% names(args)){
