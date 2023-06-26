@@ -216,7 +216,7 @@ if(!interactive()){
       init_params[["venn_GO"]] = 0
     }
   }
-  if("threads" %in% names(args)){
+  if("t" %in% names(args)){
     init_params[["threads"]] = as.numeric(args[["t"]])
   }else{
     init_params[["threads"]] = 1
