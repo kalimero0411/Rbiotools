@@ -105,13 +105,15 @@ if(!interactive()){
   if("mapper" %in% names(args)){
     init_params[["Mapper"]] = grep(pattern = args[["mapper"]],x = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),ignore.case = TRUE,value = TRUE)
   }
+
   init_params[["heatmap_row_clust"]] = !"heatmap_no_clust" %in% names(args)
-  if("noiseq" %in% names(args)){
+
+  if(!"NOISeq_correction" %in% names(init_params)){
+   if("noiseq" %in% names(args)){
     init_params[["NOISeq_correction"]] = TRUE
-  }else{
-    if("NOISeq_correction" %in% names(init_params)){
-      init_params[["NOISeq_correction"]] = FALSE
-    }
+   }else{
+    init_params[["NOISeq_correction"]] = FALSE
+   }
   }
   
   if("isoforms" %in% names(args)){
@@ -145,12 +147,11 @@ if(!interactive()){
   if("design" %in% names(args)){
     init_params[["design"]] = formula(args[["design"]])
   }
-  if("reduced_formula" %in% names(args)){
-    if("reduced" %in% names(args)){
-      init_params[["reduced_formula"]] = formula(args[["reduced"]])
-    }else{
-      init_params[["reduced_formula"]] = formula(~1)
-    }
+
+  if("reduced" %in% names(args)){
+   init_params[["reduced_formula"]] = formula(args[["reduced"]])
+  }else{
+   init_params[["reduced_formula"]] = formula(~1)
   }
   
   if("tx2gene" %in% names(args)){
@@ -365,17 +366,17 @@ if("Run settings" %in% init_params[["section"]]){
   
   # Experimental design
   experimental_design = read.table(file = init_params[["exp_design"]],header = TRUE,sep = "\t",row.names = 1)
-  if(!all(experimental_design[[1]] %in% list.files(path = init_params[["input_path"]],full.names = TRUE))){
+  if(!all(file.exists(experimental_design[[1]]))){
     cat("Changing file paths to selected input path\n")
     experimental_design[[1]] = file.path(init_params[["input_path"]],basename(experimental_design[[1]]))
-    if(!all(experimental_design[[1]] %in% list.files(path = init_params[["input_path"]],full.names = TRUE))){
+    if(!all(file.exists(experimental_design[[1]]))){
       stop("Error: file names in experimental design file must match file names (multiple files) / sample names (one file counts)\n",call. = TRUE)
     }}
   file_names = experimental_design[[1]]
   experimental_design = experimental_design[,-1,drop = FALSE]
   factors = colnames(experimental_design)
   for(i in colnames(experimental_design)){
-    experimental_design[[i]] = relevel(as.factor(experimental_design[[i]]),ref = experimental_design[[i]][1])
+    experimental_design[[i]] = relevel(as.factor(experimental_design[[i]]),ref = as.character(experimental_design[[i]][1]))
   }
   write.table(x = cbind(Sample_name = rownames(experimental_design),File_name = file_names,experimental_design),file = "Experimental_design.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
   
@@ -391,7 +392,7 @@ if("Run settings" %in% init_params[["section"]]){
   if("lengths" %in% names(init_params)){
     # GTF
     if(grepl(pattern = "gtf",sub(pattern = ".+[.]",replacement = "",init_params[["lengths"]]),ignore.case = TRUE)){
-    gtf = read.table(file = file.choose(),header = FALSE,sep = "\t",comment.char = "#")
+    gtf = read.table(file = init_params[["lengths"]],header = FALSE,sep = "\t",comment.char = "#")
     gtf = gtf[grep(pattern = "transcript|gene",gtf[,3],ignore.case = TRUE),]
     if("genes" %in% init_params[["genes_isoforms"]]){
       genes_transcripts = "gene_id"
