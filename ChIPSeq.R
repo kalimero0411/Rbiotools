@@ -1,8 +1,8 @@
 ##### ChIP analysis #####
 
-packages=c("rChoiceDialogs","BiocParallel","parallel","ShortRead","RSQLite","QuasR","BSgenome",
+packages=c("BiocParallel","parallel","ShortRead","RSQLite","QuasR","BSgenome","rstudioapi",
            "Rsamtools","rtracklayer","GenomicFeatures","Hmisc","Gviz","XML","mosaics","ChIPseeker","clusterProfiler",
-           "ReactomePA","dada2","RMariaDB","DOSE","tools","R.utils")
+           "ReactomePA","dada2","RMariaDB","DOSE","tools","R.utils","biomaRt")
 invisible(
   suppressMessages(
     sapply(packages,FUN = function(x) {
@@ -19,7 +19,7 @@ options(stringsAsFactors = FALSE)
 ###### Cluster commands ######
 args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
 must_args = c("rdata","wd","name","annotation","t")
-if(length(args)){
+if(!interactive()){
   if(!all(must_args %in% names(args))){
     help = matrix(data = c("--rdata    ","RData file path",
                            "--wd","Working directory path",
@@ -44,8 +44,7 @@ if(length(args)){
   Experiment_name = args[["name"]]
   genome_annotation_link = args[["annotation"]]
   paired = "paired" %in% names(args)
-  dir.create(path = paste0(wd,"/",Experiment_name),showWarnings = FALSE)
-  setwd(paste0(wd,"/",Experiment_name))
+  setwd(wd)
   cat("Working directory: ",getwd(),"\n", sep = "")
   cat("Experiment name: ",Experiment_name,"\n", sep = "")
   cat("Data type: ",if(paired){"Paired-end"}else{"Single-end"},"\n", sep = "")
@@ -53,7 +52,12 @@ if(length(args)){
     xls_files = sub(pattern = ".{1,}/",replacement = paste0(args[["xls"]],"/"),x = xls_files)
   }
   BED_files = NULL
+  if("t" %in% names(args)){
     threads = as.numeric(args[["t"]])
+  }else{
+    threads = 1
+  }
+    
   cat("Number of threads: ",threads,"\n", sep = "")
   
   ##### Additional arguments #####
@@ -93,41 +97,44 @@ if(length(args)){
 
 ###### Set working directory ######
 cat("#####   Select working directory   #####\n")
-wd=rchoose.dir(caption = "Choose working directory:")
+wd = selectDirectory(caption = "Choose working directory")
 setwd(wd)
 
-##### Setup experiment name ######
-if(!exists("Experiment_name")){Experiment_name = as.character(readline(prompt = "Select experiment name: "))
-if(Experiment_name %in% list.files(wd)){
-  if(rselect.list(choices = c("Overwrite","Create new folder"),multiple = FALSE,title = "Folder exists...")=="Create new folder"){
-    Experiment_name_check = Experiment_name
-    i=2
-    while(any(list.files(wd)==Experiment_name_check)){
-      cat("Experiment ",Experiment_name_check," already exists. Changing name...\n", sep = "")
-      Experiment_name_check = paste0(Experiment_name,"_(",i,")")
-      i=i+1
-    }
-    Experiment_name=Experiment_name_check
-    rm(Experiment_name_check)
-  }
-}
-}
+Experiment_name = as.character(readline(prompt = "Select experiment name: "))
 
 ##### Select files and experimental design ######
-section = rselect.list(choices = c("Setup","FASTQ","MACS2","Analysis"),multiple = TRUE,title = "Select sections to run")
+section = select.list(choices = c("Setup","FASTQ","MACS2","Analysis"),multiple = TRUE,title = "Select sections to run")
 if("Setup" %in% section){
 xls_files = NULL
 BED_files = NULL
 if("FASTQ" %in% section){
-  paired = rselect.list(choices = c("Paired-end","Single-end"),multiple = FALSE,title = "Paired or Single end?") == "Paired-end"
+  paired = select.list(choices = c("Paired-end","Single-end"),multiple = FALSE,title = "Paired or Single end?") == "Paired-end"
     }
 if("MACS2" %in% section){
-  xls_files=rchoose.files(caption = "Select MACS2 peak.xls files",multi = TRUE)
+  xls_files = choose.files(caption = "Select MACS2 peak.xls files",multi = TRUE)
 }
-genome_source=rselect.list(choices = c("UCSC","Custom"),multiple = FALSE,title = "Select annotation database")
+genome_source=select.list(choices = c("Ensembl","UCSC","Custom"),multiple = FALSE,title = "Select annotation database")
+if(genome_source=="Ensembl"){
+  martlist = listEnsemblGenomes(includeHosts = TRUE)
+  biomart_database = select.list(choices = martlist$version,multiple = FALSE,title = "Select mart")
+  mart = useMart(biomart = martlist$biomart[martlist$version %in% biomart_database],
+          host = paste0("https://",martlist$host[martlist$version %in% biomart_database]))
+  mart_datasets = listDatasets(mart = mart)
+  ensembl_dataset = mart_datasets$dataset[mart_datasets$description %in% select.list(choices = mart_datasets$description,
+                  multiple = FALSE,
+                  title = "Select dataset")]
+  genome_annotation = makeTxDbFromBiomart(biomart = martlist$biomart[martlist$version %in% biomart_database],
+                                          dataset = ensembl_dataset,
+                                          host = paste0("https://",martlist$host[martlist$version %in% biomart_database]))
+}
 if(genome_source=="UCSC"){
-  genome_annotation_link = rselect.list(choices = as.character(ucscGenomes()[,"db"]),multiple = FALSE,title = "Select UCSC database")
-  genome_annotation = makeTxDbFromUCSC(genome = genome_annotation_link)
+  genomes = ucscGenomes()
+  prmatrix(as.matrix(genomes[order(genomes$species),c("species","db")]),
+           quote = FALSE,
+           rowlab = as.character(1:nrow(as.matrix(genomes))),
+           collab = rep("",2))
+  genome_annotation = makeTxDbFromUCSC(genome = readline("Select UCSC database ID (e.g. hg19): "),url = "http://genome-euro.ucsc.edu/cgi-bin/")
+  
 }
 if(genome_source=="Custom"){
   genome_annotation_link = rchoose.files(caption = "Select GFF/GTF file: ")
