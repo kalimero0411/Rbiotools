@@ -1,11 +1,13 @@
 #####    RNA-seq analysis (RSEM / counts)    #####
 
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
-             "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","rgl","ape","cluster","data.table",
-             "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils","VennDiagram","wordcloud",
-             "tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite","bcbioRNASeq")
+             "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","plotly",
+             "htmlwidgets","webshot2","av","ape","cluster","data.table",
+             "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils",
+             "VennDiagram","wordcloud","tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite")
 
 if(!"bcbioRNASeq" %in% rownames(installed.packages())){
+  BiocManager::install("BiocIO")
   BiocManager::install("MultiAssayExperiment")
   BiocManager::install("SingleCellExperiment")
   install.packages(
@@ -13,6 +15,7 @@ if(!"bcbioRNASeq" %in% rownames(installed.packages())){
     repos = c("https://r.acidgenomics.com",getOption("repos"))
   )
 }
+library("bcbioRNASeq")
 
 invisible(
   suppressMessages(
@@ -76,6 +79,7 @@ if(!interactive()){
                            "--GO_file","Path to GO annotation file",
                            "--noiseq","Perform NOISeq correction (ARSyNseq: counts | proportion | FDR)",
                            "--venn_go","0 = None, 1 = Up-regulated, 2 = Down-regulated, 3 = Both (Default = 0; Multiple input possible)",
+                           "--3dpca","1 = Single factors, 2 = Multiple factors, 3 = DEGs (Default = None; All = 123)",
                            "--ensembl","Select Ensembl species ID (enter 0 for options)",
                            "--t","Number of compute threads",
                            "--arg","Additional R arguments (multiple arguments in separate flags)")
@@ -102,20 +106,16 @@ if(!interactive()){
     init_params[["exp_design"]] = path.expand(args[["exp"]])
   }
   
+  init_params[["pca_type"]] = args[["3dpca"]]
+
   if("mapper" %in% names(args)){
     init_params[["Mapper"]] = grep(pattern = args[["mapper"]],x = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),ignore.case = TRUE,value = TRUE)
   }
 
   init_params[["heatmap_row_clust"]] = !"heatmap_no_clust" %in% names(args)
 
-  if(!"NOISeq_correction" %in% names(init_params)){
-   if("noiseq" %in% names(args)){
-    init_params[["NOISeq_correction"]] = TRUE
-   }else{
-    init_params[["NOISeq_correction"]] = FALSE
-   }
-  }
-  
+  init_params[["NOISeq_correction"]] = "noiseq" %in% names(args)
+
   if("isoforms" %in% names(args)){
     init_params[["genes_isoforms"]] = "isoforms"
   }else{
@@ -199,13 +199,9 @@ if(!interactive()){
     }
   }
   
-  
-  if("remove_isoforms" %in% names(args)){
-    init_params[["remove_isoforms"]] = TRUE
+    init_params[["remove_isoforms"]] = "remove_isoforms" %in% names(args)
     init_params[["isoform_pattern"]] = unname(args[["remove_isoforms"]])
-  }else{
-    init_params[["remove_isoforms"]] = FALSE
-  }
+
   if("seed" %in% names(args)){
     init_params[["random_seed"]] = as.numeric(args[["seed"]])
   }else{
@@ -477,67 +473,51 @@ plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData 
 }
 
 # 3D PCA plot function
-PCA_3D = function(PC_factor,pca_type){
-  multi_done = list()
-  for(run_factor in PC_factor){
+PCA_3D = function(pca_type){
+  if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
+  for(run_factor in names(PCA_data[["Single_factor"]])){
     colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Single_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))]
     # Single factor 3D PCAs
     if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
       dir.create("animation_merge",showWarnings = FALSE)
-      for(degree in 1:360) {
-        open3d()
-        par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
-        plot3d(x = PCA_data[["Single_factor"]][[run_factor]][["PC1"]],
-               y = PCA_data[["Single_factor"]][[run_factor]][["PC2"]],
-               z = PCA_data[["Single_factor"]][[run_factor]][["PC3"]],
-               col = colors_3d,
-               size = 2,
-               xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[1],"% variance"),
-               ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[2],"% variance"),
-               zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[run_factor]], "percentVar"))[3],"% variance"),
-               type = "s") +
-          legend3d("topright", legend = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
-        view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
-        rgl.snapshot(filename=paste("animation_merge/frame-",
-                                    sprintf("%03d", degree), ".png", sep=""))
-        while(length(rgl.dev.list()) != 0){rgl.close()}
-        cat("\rRunning single factor ",run_factor," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+      for(degree in 1:361) {
+        p = plot_ly(PCA_data[["Single_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = ~Time) %>%
+          layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
+                              xaxis = list(showticklabels = FALSE),
+                              yaxis = list(showticklabels = FALSE),
+                              zaxis = list(showticklabels = FALSE))
+          )
+        htmlwidgets::saveWidget(p, "temp_plot.html", selfcontained = FALSE)
+        webshot2::webshot("temp_plot.html", file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
       }
-      cat("\nRunning ffmpeg...\n")
-      try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",init_params[["wd"]],"/animation_merge/frame-%03d.png ./",init_params[["rlog_vst"]],"/PCA/PCA_3D_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",run_factor,".mp4")))
+      file_list <- normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
+      av_encode_video(file_list,
+                      output = paste0(init_params[["rlog_vst"]],"/PCA/",run_factor,".mp4"),
+                      framerate = 60)
       unlink("animation_merge",recursive = TRUE)
     }
+  }
 
     # Multiple factor 3D PCAs
     if("Multiple_factor" %in% names(PCA_data) & grepl(pattern = 2,pca_type)){
-      for(PCA_comp in names(PCA_data[["Multiple_factor"]])){
-        colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]],table = unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]))]
-        if(run_factor %in% attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor") & !any(sapply(multi_done,function(x){all(x==attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor"))}))){
-          multi_done = append(multi_done,values = list(attr(PCA_data[["Multiple_factor"]][[PCA_comp]], which = "factor")))
+      for(run_factor in names(PCA_data[["Multiple_factor"]])){
+        colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Multiple_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Multiple_factor"]][[run_factor]][["group"]]))]
           dir.create("animation_merge",showWarnings = FALSE)
-          for(degree in 1:360) {
-            open3d()
-            par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
-            plot3d(x = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC1"]],
-                   y = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC2"]],
-                   z = PCA_data[["Multiple_factor"]][[PCA_comp]][["PC3"]],
-                   col = colors_3d,
-                   size = 2,
-                   xlab = paste0("PC1: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[1],"% variance"),
-                   ylab = paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[2],"% variance"),
-                   zlab = paste0("PC3: ",round(100 * attr(PCA_data[["Multiple_factor"]][[PCA_comp]], "percentVar"))[3],"% variance"),
-                   type = "s") +
-              legend3d("topright", legend = unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["Multiple_factor"]][[PCA_comp]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
-            view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
-            rgl.snapshot(filename=paste("animation_merge/frame-",
-                                        sprintf("%03d", degree), ".png", sep=""))
-            while(length(rgl.dev.list()) != 0){rgl.close()}
-            cat("\rRunning multiple factor ",PCA_comp," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+          for(degree in 1:361) {
+            p = plot_ly(PCA_data[["Multiple_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = ~Time) %>%
+              layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
+                                  xaxis = list(showticklabels = FALSE),
+                                  yaxis = list(showticklabels = FALSE),
+                                  zaxis = list(showticklabels = FALSE))
+              )
+            htmlwidgets::saveWidget(p, "temp_plot.html", selfcontained = FALSE)
+            webshot2::webshot("temp_plot.html", file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
           }
-          cat("\nRunning ffmpeg...\n")
-          try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",init_params[["wd"]],"/animation_merge/frame-%03d.png ./",init_params[["rlog_vst"]],"/PCA/PCA_3D_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",PCA_comp,".mp4")))
+          file_list <- normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
+          av_encode_video(file_list,
+                          output = paste0(init_params[["rlog_vst"]],"/PCA/",run_factor,".mp4"),
+                          framerate = 60)
           unlink("animation_merge",recursive = TRUE)
-        }
       }
     }
 
@@ -547,27 +527,20 @@ PCA_3D = function(PC_factor,pca_type){
         for(PCA_comp in names(PCA_data[["DEGs"]][[run_factor]])){
           colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]],table = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))]
           dir.create("animation_merge",showWarnings = FALSE)
-          for(degree in 1:360) {
-            open3d()
-            par3d(windowRect = c(20, 30, 1080, 1080),dev = unname(rgl.dev.list()))
-            plot3d(x = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC1"]],
-                   y = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC2"]],
-                   z = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["PC3"]],
-                   col = colors_3d,
-                   size = 2,
-                   xlab = paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[1],"% variance"),
-                   ylab = paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[2],"% variance"),
-                   zlab = paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], "percentVar"))[3],"% variance"),
-                   type = "s") +
-              legend3d("topright", legend = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]), col = brewer.pal(n = 9,name = "Set1")[1:length(unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))], pch = 16, cex=1, inset=c(0.02))
-            view3d(userMatrix=rotationMatrix(2*pi * degree/360, 0, 1, 0))
-            rgl.snapshot(filename=paste("animation_merge/frame-",
-                                        sprintf("%03d", degree), ".png", sep=""))
-            while(length(rgl.dev.list()) != 0){rgl.close()}
-            cat("\rRunning DEGs ",PCA_comp," | ",format(round((degree/360)*100,digits = 2),nsmall = 2),"%", sep = "")
+          for(degree in 1:361) {
+             p = plot_ly(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = ~Time) %>%
+              layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
+                                  xaxis = list(showticklabels = FALSE),
+                                  yaxis = list(showticklabels = FALSE),
+                                  zaxis = list(showticklabels = FALSE))
+              )
+            htmlwidgets::saveWidget(p, "temp_plot.html", selfcontained = FALSE)
+            webshot2::webshot("temp_plot.html", file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
           }
-          cat("\nRunning ffmpeg...\n")
-          try(system(paste0("ffmpeg -y -hide_banner -loglevel warning -r 60 -y -i ",init_params[["wd"]],"/animation_merge/frame-%03d.png ./",init_params[["rlog_vst"]],"/PCA/PCA_3D_DEGs_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",PCA_comp,".mp4")))
+          file_list <- normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
+          av_encode_video(file_list,
+                          output = paste0(init_params[["rlog_vst"]],"/PCA/",PCA_comp,".mp4"),
+                          framerate = 60)
           unlink("animation_merge",recursive = TRUE)
         }
       }
@@ -980,7 +953,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       GO_table[["Term"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"TERM"]
       GO_table[["Ontology"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"ONTOLOGY"]
       GO_table[["Definition"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"DEFINITION"]
-      write.table(x = GO_table,file = paste0("GO_table_info_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      # write.table(x = GO_table,file = paste0("GO_table_info_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
       write.table(x = GO_table[,c("Gene","GOID")],file = paste0("GO_table_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
       write.table(x = c("(species=Rbiotools)(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_BP_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
       write.table(x = c("(species=Rbiotools)(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_CC_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
@@ -1450,10 +1423,9 @@ environment(pheatmap_seed) = environment(pheatmap)
         cat(" DEG heatmap completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
       }
 
-      ######       PCA DEGs       ######
       if("Dispersion estimates, PCAs and PCoAs" %in% init_params[["section"]]){
 
-        # Create Volcano plot
+        ##### Create Volcano plot #####
         volcano_data = deseq_results[[compare_var]][,c("log2FoldChange","padj")]
       volcano_data[["Expression"]] = apply(volcano_data,MARGIN = 1,function(x){
         if(abs(as.numeric(x[1])) >= 1 & as.numeric(x[2]) < 0.05){
@@ -1482,6 +1454,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       print(volcano_plot)
       while (!is.null(dev.list())){dev.off()}
 
+      ######       PCA DEGs       ######
       if(!is.null(attr(deseq_results[[compare_var]],which = "factor")) & length(deseq_sig) > 0){
       PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]] = plotPCA_PC123(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),returnData = TRUE)
       if(!is.null(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]])){
@@ -1892,6 +1865,11 @@ environment(pheatmap_seed) = environment(pheatmap)
   colors=colorRampPalette(brewer.pal(9,"Blues"))(255)
   pheatmap(cor(data_set_matrix),filename = paste0(init_params[["rlog_vst"]],"/Heatmaps/Heatmap_variables_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],".png"),col = colors,main = "Variable heatmap")
 
+  #####    3D PCA    ######
+  if(!isnull(init_params[["pca_type"]])){
+    PCA_3D(pca_type = init_params[["pca_type"]])
+  }
+  
   #####    Create reports    ######
   cat("#####    Creating reports    ######\n")
   time_start=Sys.time()
@@ -1928,11 +1906,6 @@ environment(pheatmap_seed) = environment(pheatmap)
     }
     }
   cat("Reports completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
-  }
-    if(exists("PCA_data")){
-      save(list = c("PCA_data","experimental_design","PCA_3D","init_params"),file = "PCA_data.RData")
     }
-      save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","final_data.RData"))
-  }
-
+  
 cat("#####    End of DEseq analysis    #####\n")
