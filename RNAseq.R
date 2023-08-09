@@ -370,7 +370,7 @@ if("Run settings" %in% init_params[["section"]]){
     }}
   file_names = experimental_design[[1]]
   experimental_design = experimental_design[,-1,drop = FALSE]
-  factors = colnames(experimental_design)
+  init_params[["factors"]] = colnames(experimental_design)
   for(i in colnames(experimental_design)){
     experimental_design[[i]] = relevel(as.factor(experimental_design[[i]]),ref = as.character(experimental_design[[i]][1]))
   }
@@ -904,7 +904,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                                                                         p.adj = "fdr",
                                                                         method = 3,
                                                                         norm = FALSE,
-                                                                        factor = factors[1]),
+                                                                        factor = init_params[["factors"]][1]),
                                                    factors = data.frame(experimental_design,
                                                                         Replicates = apply(experimental_design,MARGIN = 1,function(x) paste(x,collapse = "."))),
                                                    length = as.matrix(gene_length)[,1]),
@@ -1008,8 +1008,7 @@ environment(pheatmap_seed) = environment(pheatmap)
 
   if(any(c("Heatmaps","Dispersion estimates, PCAs and PCoAs","Optimize K-means","K-means clustering","Hierarchial clustering","MA-plot","DEG heatmap","goseq GO analysis","topGO analysis","Wordcloud","Venn diagram","Variable heatmap and report") %in% init_params[["section"]])){
     #####   Data matrix   #####
-    dir.create(init_params[["rlog_vst"]],showWarnings = FALSE)
-    dir.create(paste0(init_params[["rlog_vst"]],"/Heatmaps"),showWarnings = FALSE)
+    dir.create(paste0(init_params[["rlog_vst"]],"/Heatmaps"),showWarnings = FALSE,recursive = TRUE)
     data_set_matrix = assay(data_set_transform)
     # if(nrow(data_set_matrix) > 65536){
     #   cat("Too many genes. Removing lowest ",nrow(data_set_matrix) - 65536," expressed genes\n",sep = "")
@@ -1064,7 +1063,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   dir.create(paste0(init_params[["rlog_vst"]],"/PCA"),showWarnings = FALSE)
   PCA_data = list()
   cat("#####    Creating PCA and factor heatmap plots    ######\n")
-  for(i in factors){
+  for(i in init_params[["factors"]]){
       PCA_data[["Single_factor"]][[i]] = plotPCA_PC123(object = data_set_transform,intgroup=i,returnData = TRUE)
       if(!is.null(PCA_data[["Single_factor"]][[i]])){
       png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,".png"),width = 1920,height = 1080,units = "px")
@@ -1109,9 +1108,9 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
 
   #####   Multi-factor PCA and PCoA   #####
-  if(length(factors) > 1){
-  for(i in factors[-length(factors)]){
-  for(j in factors[(which(factors %in% i)+1):length(factors)]){
+  if(length(init_params[["factors"]]) > 1){
+  for(i in init_params[["factors"]][-length(init_params[["factors"]])]){
+  for(j in init_params[["factors"]][(which(init_params[["factors"]] %in% i)+1):length(init_params[["factors"]])]){
     PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]] = plotPCA_PC123(object = data_set_transform,intgroup=c(i,j),returnData = TRUE)
     if(!is.null(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]])){
     attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], which = "factor") = c(i,j)
@@ -1309,7 +1308,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   deseq_results_sig = list()
 
   ## Individual factors
-  for(f in factors){
+  for(f in init_params[["factors"]]){
     control_var = levels(data_set_DESeq@colData[[f]])[1]
     group_var = levels(data_set_DESeq@colData[[f]])[-1]
     for(i in group_var){
@@ -1873,7 +1872,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   #####    Create reports    ######
   cat("#####    Creating reports    ######\n")
   time_start=Sys.time()
-  for(i in factors){
+  for(i in init_params[["factors"]]){
   DESeq_report = HTMLReport(shortName = paste0(init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,"_reports"),
                           title = paste0(init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,"_reports"),
                           reportDirectory = paste0(init_params[["rlog_vst"]],"/",i,"_report"))
@@ -1890,7 +1889,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   if(length(grep(pattern = ":",init_params[["design"]]))){
     for(int in grep(pattern = "_vs_",resultsNames(data_set_DESeq)[-1],value = TRUE,invert = TRUE)){
     data_set_DESeq_int = data_set_DESeq[rownames(deseq_results_sig[[int]]),]
-      for(i in factors){
+      for(i in init_params[["factors"]]){
       DESeq_report = HTMLReport(shortName = paste0(init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",int,"_",i,"_reports"),
                                 title = paste0(init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",int,"_",i,"_reports"),
                                 reportDirectory = paste0(init_params[["rlog_vst"]],"/",int,"_",i,"_report"))
@@ -1907,5 +1906,6 @@ environment(pheatmap_seed) = environment(pheatmap)
     }
   cat("Reports completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     }
+  }
   
 cat("#####    End of DEseq analysis    #####\n")
