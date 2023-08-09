@@ -1748,7 +1748,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                 cat("Creating enriched DEG Wordclouds...\n",sep = "")
                 DEG_table = table(GO_DEGs_df[,"Term"])
                 DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
-                cat(format(round((3*match(k,if("k_clusters" %in% names(init_params)){c("all",1:init_params[["k_clusters"]])}else{"all"}))/(3*if("k_clusters" %in% names(init_params)){init_params[["k_clusters"]] + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           ",sep = "")
+                cat(format(round((3*match(k,if("k_clusters" %in% names(init_params)){c("all",1:init_params[["k_clusters"]])}else{"all"}))/(3*if("k_clusters" %in% names(init_params)){init_params[["k_clusters"]] + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \n",sep = "")
                 if(length(DEG_table) > 0){
                   png(filename = paste0(init_params[["rlog_vst"]],"/Wordcloud/Enriched_Wordcloud_",compare_var,"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
                   tryCatch(expr = {
@@ -1834,7 +1834,7 @@ environment(pheatmap_seed) = environment(pheatmap)
           DEG_table = DEG_table[!is.na(DEG_table[["Term"]]),,drop = FALSE]
           DEG_table = table(DEG_table[DEG_table[["Ontology"]] == ontology,"Term"])
           DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
-          cat(format(round((3*match(k,if("k_clusters" %in% names(init_params)){c("all",1:init_params[["k_clusters"]])}else{"all"}))/(3*if("k_clusters" %in% names(init_params)){init_params[["k_clusters"]] + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           ",sep = "")
+          cat(format(round((3*match(k,if("k_clusters" %in% names(init_params)){c("all",1:init_params[["k_clusters"]])}else{"all"}))/(3*if("k_clusters" %in% names(init_params)){init_params[["k_clusters"]] + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \n",sep = "")
           if(length(DEG_table) > 0){
             png(filename = paste0(init_params[["rlog_vst"]],"/Wordcloud/Wordcloud_",compare_var,"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
             tryCatch(expr = {
