@@ -481,7 +481,7 @@ PCA_3D = function(pca_type){
     if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
       dir.create("animation_merge",showWarnings = FALSE)
       for(degree in 1:361) {
-        p = plot_ly(PCA_data[["Single_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = ~Time) %>%
+        p = plot_ly(PCA_data[["Single_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = run_factor) %>%
           layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                               xaxis = list(showticklabels = FALSE),
                               yaxis = list(showticklabels = FALSE),
@@ -504,7 +504,7 @@ PCA_3D = function(pca_type){
         colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Multiple_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Multiple_factor"]][[run_factor]][["group"]]))]
           dir.create("animation_merge",showWarnings = FALSE)
           for(degree in 1:361) {
-            p = plot_ly(PCA_data[["Multiple_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = ~Time) %>%
+            p = plot_ly(PCA_data[["Multiple_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = run_factor) %>%
               layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                                   xaxis = list(showticklabels = FALSE),
                                   yaxis = list(showticklabels = FALSE),
@@ -528,7 +528,7 @@ PCA_3D = function(pca_type){
           colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]],table = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))]
           dir.create("animation_merge",showWarnings = FALSE)
           for(degree in 1:361) {
-             p = plot_ly(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = ~Time) %>%
+             p = plot_ly(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = PCA_comp) %>%
               layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                                   xaxis = list(showticklabels = FALSE),
                                   yaxis = list(showticklabels = FALSE),
