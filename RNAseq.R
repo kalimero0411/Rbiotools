@@ -445,6 +445,58 @@ if("GO_file" %in% names(init_params)){
 ##### Load custom functions #####
 eval(parse(text = getURL("https://raw.githubusercontent.com/kevinblighe/clusGapKB/master/clusGapKB.R", ssl.verifypeer = FALSE)))
 
+# topGO
+  topGO_fun = function(DE_genes_sig,compare_var,k){
+    geneList = factor(as.integer(names(geneGO) %in% DE_genes_sig),levels = c(0,1))
+    names(geneList) = names(geneGO)
+    for(ontology in c("BP","MF","CC")){
+      sampleGOdata = new("topGOdata",
+                         description = "Simple session",
+                         ontology = ontology,
+                         allGenes = geneList,
+                         annot = annFUN.gene2GO,
+                         gene2GO = geneGO)
+      enrich_result = runTest(sampleGOdata, statistic = "fisher",algorithm = "classic")
+      
+      if(sum(enrich_result@score <= init_params[["FDR"]]) > 0){
+        printGraph(object = sampleGOdata,
+                   result = enrich_result,
+                   firstSigNodes = 10,
+                   fn.prefix = paste0(init_params[["rlog_vst"]],"/top_GO_annotation/topGO_graphs/",compare_var,"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_Best10_kcluster_",k,"_",ontology),
+                   useInfo = "all",
+                   pdfSW = TRUE)
+        GO_DEGs_df = GenTable(object = sampleGOdata,classicFisher = enrich_result,topNodes = sum(enrich_result@score <= init_params[["FDR"]]))
+        GO_DEGs_df[["Term"]] = GO_terms$TERM[match(GO_DEGs_df$GO.ID,table = GO_terms$GOID)]
+        GO_DEGs_df[["Definition"]] = GO_terms$DEFINITION[match(GO_DEGs_df$GO.ID,table = GO_terms$GOID)]
+        write.table(GO_DEGs_df,file = paste0(init_params[["rlog_vst"]],"/top_GO_annotation/topGO_DEGs/",compare_var,"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
+        
+        if("Wordcloud" %in% init_params[["section"]]){
+          dir.create(paste0(init_params[["rlog_vst"]],"/Wordcloud"),showWarnings = FALSE)
+          cat("Creating enriched DEG Wordclouds...\n",sep = "")
+          DEG_table = table(GO_DEGs_df[,"Term"])
+          DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
+          cat(format(round((3*match(k,if("k_clusters" %in% names(init_params)){c("all",1:init_params[["k_clusters"]])}else{"all"}))/(3*if("k_clusters" %in% names(init_params)){init_params[["k_clusters"]] + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \n",sep = "")
+          if(length(DEG_table) > 0){
+            png(filename = paste0(init_params[["rlog_vst"]],"/Wordcloud/Enriched_Wordcloud_",compare_var,"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
+            tryCatch(expr = {
+              wordcloud(words = names(DEG_table),
+                        freq = DEG_table,
+                        min.freq=1,
+                        max.words=100,
+                        random.order=FALSE,
+                        rot.per=0.35,
+                        use.r.layout=FALSE,
+                        colors=brewer.pal(8, "Dark2"),
+                        scale=c(5,0.4)
+              )
+            },error = function(e) e)
+            while (!is.null(dev.list())){dev.off()}
+          }
+        }
+      }
+    }
+  }
+  
 # PCA plot function for PC2 and PC3
 plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData = FALSE){
   rv = rowVars(assay(object))
@@ -481,7 +533,7 @@ PCA_3D = function(pca_type){
     if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
       dir.create("animation_merge",showWarnings = FALSE)
       for(degree in 1:361) {
-        p = plot_ly(PCA_data[["Single_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = run_factor) %>%
+        p = plot_ly(PCA_data[["Single_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", colors = colors_3d,color = PCA_data[["Single_factor"]][[run_factor]][["group"]]) %>%
           layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                               xaxis = list(showticklabels = FALSE),
                               yaxis = list(showticklabels = FALSE),
@@ -495,6 +547,7 @@ PCA_3D = function(pca_type){
                       output = paste0(init_params[["rlog_vst"]],"/PCA/",run_factor,".mp4"),
                       framerate = 60)
       unlink("animation_merge",recursive = TRUE)
+      unlink("temp_plot_files",recursive = TRUE)
     }
   }
 
@@ -504,7 +557,7 @@ PCA_3D = function(pca_type){
         colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Multiple_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Multiple_factor"]][[run_factor]][["group"]]))]
           dir.create("animation_merge",showWarnings = FALSE)
           for(degree in 1:361) {
-            p = plot_ly(PCA_data[["Multiple_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = run_factor) %>%
+            p = plot_ly(PCA_data[["Multiple_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", colors = colors_3d,color = PCA_data[["Multiple_factor"]][[run_factor]][["group"]]) %>%
               layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                                   xaxis = list(showticklabels = FALSE),
                                   yaxis = list(showticklabels = FALSE),
@@ -518,6 +571,7 @@ PCA_3D = function(pca_type){
                           output = paste0(init_params[["rlog_vst"]],"/PCA/",run_factor,".mp4"),
                           framerate = 60)
           unlink("animation_merge",recursive = TRUE)
+          unlink("temp_plot_files",recursive = TRUE)
       }
     }
 
@@ -528,7 +582,7 @@ PCA_3D = function(pca_type){
           colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]],table = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))]
           dir.create("animation_merge",showWarnings = FALSE)
           for(degree in 1:361) {
-             p = plot_ly(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", color = colors_3d,name = PCA_comp) %>%
+             p = plot_ly(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", colors = colors_3d,color = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]) %>%
               layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                                   xaxis = list(showticklabels = FALSE),
                                   yaxis = list(showticklabels = FALSE),
@@ -542,6 +596,7 @@ PCA_3D = function(pca_type){
                           output = paste0(init_params[["rlog_vst"]],"/PCA/",PCA_comp,".mp4"),
                           framerate = 60)
           unlink("animation_merge",recursive = TRUE)
+          unlink("temp_plot_files",recursive = TRUE)
         }
       }
     }
@@ -1442,8 +1497,8 @@ environment(pheatmap_seed) = environment(pheatmap)
         geom_point(aes(color = Expression,alpha = Expression), size = 3) +
         xlab(expression("log"[2]*"FC")) +
         ylab(expression("-log"[10]*"FDR")) +
-        scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
-        scale_alpha_manual(values = c(1,0.25,1)) +
+        scale_color_manual(values = c("Up-regulated" = "dodgerblue3", "Unchanged" = "gray50", "Down-regulated" = "firebrick3")) +
+        scale_alpha_manual(values = c("Up-regulated" = 1,"Unchanged" = 0.25,"Down-regulated" = 1)) +
         guides(colour = guide_legend(override.aes = list(size = 3))) +
         geom_hline(yintercept = -log(0.05,10), linetype="dashed") +
         geom_vline(xintercept = c(-1,1), linetype="dashed") +
@@ -1719,56 +1774,6 @@ environment(pheatmap_seed) = environment(pheatmap)
       #######     topGO annotation      #########
       if("topGO analysis" %in% init_params[["section"]]){
         time_start=Sys.time()
-        topGO_fun = function(DE_genes_sig,compare_var,k){
-          geneList = factor(as.integer(names(geneGO) %in% DE_genes_sig),levels = c(0,1))
-          names(geneList) = names(geneGO)
-          for(ontology in c("BP","MF","CC")){
-            sampleGOdata = new("topGOdata",
-                               description = "Simple session",
-                               ontology = ontology,
-                               allGenes = geneList,
-                               annot = annFUN.gene2GO,
-                               gene2GO = geneGO)
-            enrich_result = runTest(sampleGOdata, statistic = "fisher",algorithm = "classic")
-
-            if(sum(enrich_result@score <= init_params[["FDR"]]) > 0){
-              printGraph(object = sampleGOdata,
-                         result = enrich_result,
-                         firstSigNodes = 10,
-                         fn.prefix = paste0(init_params[["rlog_vst"]],"/top_GO_annotation/topGO_graphs/",compare_var,"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_Best10_kcluster_",k,"_",ontology),
-                         useInfo = "all",
-                         pdfSW = TRUE)
-              GO_DEGs_df = GenTable(object = sampleGOdata,classicFisher = enrich_result,topNodes = sum(enrich_result@score <= init_params[["FDR"]]))
-              GO_DEGs_df[["Term"]] = GO_terms$TERM[match(GO_DEGs_df$GO.ID,table = GO_terms$GOID)]
-              GO_DEGs_df[["Definition"]] = GO_terms$DEFINITION[match(GO_DEGs_df$GO.ID,table = GO_terms$GOID)]
-              write.table(GO_DEGs_df,file = paste0(init_params[["rlog_vst"]],"/top_GO_annotation/topGO_DEGs/",compare_var,"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_kcluster_",k,"_",ontology,"_sig.txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
-
-              if("Wordcloud" %in% init_params[["section"]]){
-                dir.create(paste0(init_params[["rlog_vst"]],"/Wordcloud"),showWarnings = FALSE)
-                cat("Creating enriched DEG Wordclouds...\n",sep = "")
-                DEG_table = table(GO_DEGs_df[,"Term"])
-                DEG_table = DEG_table[grep(pattern = "biological_process|cellular_component|molecular_function",x = names(DEG_table),invert = TRUE)]
-                cat(format(round((3*match(k,if("k_clusters" %in% names(init_params)){c("all",1:init_params[["k_clusters"]])}else{"all"}))/(3*if("k_clusters" %in% names(init_params)){init_params[["k_clusters"]] + 1}else{1}),digits = 2)*100,nsmall = 0),"% --> Comparison: ",compare_var," | k: ",k," | Ontology: ",ontology,"           \n",sep = "")
-                if(length(DEG_table) > 0){
-                  png(filename = paste0(init_params[["rlog_vst"]],"/Wordcloud/Enriched_Wordcloud_",compare_var,"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_kcluster_",k,"_",ontology,".png"),width = 1080,height = 1080,units = "px")
-                  tryCatch(expr = {
-                    wordcloud(words = names(DEG_table),
-                              freq = DEG_table,
-                              min.freq=1,
-                              max.words=100,
-                              random.order=FALSE,
-                              rot.per=0.35,
-                              use.r.layout=FALSE,
-                              colors=brewer.pal(8, "Dark2"),
-                              scale=c(5,0.4)
-                    )
-                  },error = function(e) e)
-                  while (!is.null(dev.list())){dev.off()}
-                }
-              }
-            }
-          }
-        }
         dir.create(paste0(init_params[["rlog_vst"]],"/top_GO_annotation/topGO_graphs"),showWarnings = FALSE, recursive = TRUE)
         dir.create(paste0(init_params[["rlog_vst"]],"/top_GO_annotation/topGO_DEGs"),showWarnings = FALSE)
         if(exists("venn_calc") & any(init_params[["venn_GO"]] > 1)){
