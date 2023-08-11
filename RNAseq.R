@@ -533,7 +533,7 @@ PCA_3D = function(pca_type){
     if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
       dir.create("animation_merge",showWarnings = FALSE)
       gen_3d_plot = function(degree){
-        temp_file = tempfile(pattern = "plot_", fileext = ".html")
+        temp_file = tempfile(tmpdir = "animation_merge",pattern = "plot_", fileext = ".html")
         p = plot_ly(PCA_data[["Single_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", colors = colors_3d,color = PCA_data[["Single_factor"]][[run_factor]][["group"]]) %>%
           layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                               xaxis = list(showticklabels = FALSE),
@@ -543,10 +543,11 @@ PCA_3D = function(pca_type){
         htmlwidgets::saveWidget(p, temp_file, selfcontained = FALSE)
         webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
       }
+      
       if(.Platform$OS.type == "unix"){
-        mclapply(1:361,gen_3d_plot,max(1,floor(init_params[["threads"]]/2)))
+        mclapply(1:361,gen_3d_plot,mc.cores = max(1,init_params[["threads"]] - 1))
       }else{
-        cl = makeCluster(max(1,floor(init_params[["threads"]]/2)))
+        cl = makeCluster(max(1,init_params[["threads"]] - 1))
         registerDoParallel(cl)
         foreach(degree = 1:361, .packages = c("plotly", "htmlwidgets", "webshot2")) %dopar% {
           gen_3d_plot(degree)
@@ -554,7 +555,7 @@ PCA_3D = function(pca_type){
         stopCluster(cl)
       }
       
-      file_list <- normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
+      file_list = normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
       av_encode_video(file_list,
                       output = paste0(init_params[["rlog_vst"]],"/PCA/",run_factor,".mp4"),
                       framerate = 60)
@@ -567,22 +568,22 @@ PCA_3D = function(pca_type){
       for(run_factor in names(PCA_data[["Multiple_factor"]])){
         colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Multiple_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Multiple_factor"]][[run_factor]][["group"]]))]
           dir.create("animation_merge",showWarnings = FALSE)
-          for(degree in 1:361) {
+          gen_3d_plot = function(degree){
+            temp_file = tempfile(tmpdir = "animation_merge",pattern = "plot_", fileext = ".html")
             p = plot_ly(PCA_data[["Multiple_factor"]][[run_factor]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", colors = colors_3d,color = PCA_data[["Multiple_factor"]][[run_factor]][["group"]]) %>%
               layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                                   xaxis = list(showticklabels = FALSE),
                                   yaxis = list(showticklabels = FALSE),
                                   zaxis = list(showticklabels = FALSE))
               )
-            htmlwidgets::saveWidget(p, "temp_plot.html", selfcontained = FALSE)
-            webshot2::webshot("temp_plot.html", file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
+            htmlwidgets::saveWidget(p, temp_file, selfcontained = FALSE)
+            webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
           }
-          file_list <- normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
+          file_list = normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
           av_encode_video(file_list,
                           output = paste0(init_params[["rlog_vst"]],"/PCA/",run_factor,".mp4"),
                           framerate = 60)
           unlink("animation_merge",recursive = TRUE)
-          unlink("temp_plot_files",recursive = TRUE)
       }
     }
 
@@ -592,22 +593,22 @@ PCA_3D = function(pca_type){
         for(PCA_comp in names(PCA_data[["DEGs"]][[run_factor]])){
           colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]],table = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))]
           dir.create("animation_merge",showWarnings = FALSE)
-          for(degree in 1:361) {
+          gen_3d_plot = function(degree){
+             temp_file = tempfile(tmpdir = "animation_merge",pattern = "plot_", fileext = ".html")
              p = plot_ly(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]], x = ~PC1, y = ~PC2, z = ~PC3, type = "scatter3d", mode = "markers", colors = colors_3d,color = PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]) %>%
               layout(scene = list(camera = list(eye = list(x = 2*cos(degree*pi/180), y = 2*sin(degree*pi/180), z = 0.1)),
                                   xaxis = list(showticklabels = FALSE),
                                   yaxis = list(showticklabels = FALSE),
                                   zaxis = list(showticklabels = FALSE))
               )
-            htmlwidgets::saveWidget(p, "temp_plot.html", selfcontained = FALSE)
-            webshot2::webshot("temp_plot.html", file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
+            htmlwidgets::saveWidget(p, temp_file, selfcontained = FALSE)
+            webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
           }
-          file_list <- normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
+          file_list = normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
           av_encode_video(file_list,
                           output = paste0(init_params[["rlog_vst"]],"/PCA/",PCA_comp,".mp4"),
                           framerate = 60)
           unlink("animation_merge",recursive = TRUE)
-          unlink("temp_plot_files",recursive = TRUE)
         }
       }
     }
