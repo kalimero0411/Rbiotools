@@ -531,7 +531,6 @@ PCA_3D = function(pca_type){
     colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Single_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))]
     # Single factor 3D PCAs
     if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
-      # unlink("animation_merge",recursive = TRUE)
       dir.create("animation_merge",showWarnings = FALSE)
       gen_3d_plot = function(degree){
         temp_file = tempfile(tmpdir = "animation_merge",pattern = "plot_", fileext = ".html")
@@ -568,7 +567,6 @@ PCA_3D = function(pca_type){
     if("Multiple_factor" %in% names(PCA_data) & grepl(pattern = 2,pca_type)){
       for(run_factor in names(PCA_data[["Multiple_factor"]])){
         colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Multiple_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Multiple_factor"]][[run_factor]][["group"]]))]
-        # unlink("animation_merge",recursive = TRUE)
         dir.create("animation_merge",showWarnings = FALSE)
           gen_3d_plot = function(degree){
             temp_file = tempfile(tmpdir = "animation_merge",pattern = "plot_", fileext = ".html")
@@ -593,7 +591,6 @@ PCA_3D = function(pca_type){
       if(run_factor %in% names(PCA_data[["DEGs"]])){
         for(PCA_comp in names(PCA_data[["DEGs"]][[run_factor]])){
           colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]],table = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))]
-          # unlink("animation_merge",recursive = TRUE)
           dir.create("animation_merge",showWarnings = FALSE)
           gen_3d_plot = function(degree){
              temp_file = tempfile(tmpdir = "animation_merge",pattern = "plot_", fileext = ".html")
@@ -1886,6 +1883,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   #####    3D PCA    ######
   if(!is.null(init_params[["pca_type"]])){
     PCA_3D(pca_type = init_params[["pca_type"]])
+    unlink("animation_merge",recursive = TRUE)
   }
   
   #####    Create reports    ######
