@@ -541,7 +541,7 @@ PCA_3D = function(pca_type){
                               zaxis = list(showticklabels = FALSE))
           )
         htmlwidgets::saveWidget(p, temp_file, selfcontained = FALSE)
-        webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
+        webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"))
       }
       
       if(.Platform$OS.type == "unix"){
@@ -577,7 +577,7 @@ PCA_3D = function(pca_type){
                                   zaxis = list(showticklabels = FALSE))
               )
             htmlwidgets::saveWidget(p, temp_file, selfcontained = FALSE)
-            webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
+            webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"))
           }
           file_list = normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
           av_encode_video(file_list,
@@ -602,7 +602,7 @@ PCA_3D = function(pca_type){
                                   zaxis = list(showticklabels = FALSE))
               )
             htmlwidgets::saveWidget(p, temp_file, selfcontained = FALSE)
-            webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"),)
+            webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"))
           }
           file_list = normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
           av_encode_video(file_list,
