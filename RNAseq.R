@@ -614,7 +614,6 @@ PCA_3D = function(pca_type){
       }
     }
   }
-}
 
 # Kmeans pheatmap function for seed setting
 pheatmap_seed = function(mat,
