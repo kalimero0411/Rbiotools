@@ -562,6 +562,7 @@ PCA_3D = function(pca_type){
                       framerate = 60)
     }
   }
+  }
 
     # Multiple factor 3D PCAs
     if("Multiple_factor" %in% names(PCA_data) & grepl(pattern = 2,pca_type)){
@@ -592,7 +593,7 @@ PCA_3D = function(pca_type){
       if(run_factor %in% names(PCA_data[["DEGs"]])){
         for(PCA_comp in names(PCA_data[["DEGs"]][[run_factor]])){
           colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]],table = unique(PCA_data[["DEGs"]][[run_factor]][[PCA_comp]][["group"]]))]
-          unlink("animation_merge",recursive = TRUE)
+          unlink("animation_merge/*",recursive = TRUE)
           dir.create("animation_merge",showWarnings = FALSE)
           gen_3d_plot = function(degree){
              temp_file = tempfile(tmpdir = "animation_merge",pattern = "plot_", fileext = ".html")
