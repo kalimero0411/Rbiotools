@@ -1741,7 +1741,7 @@ environment(pheatmap_seed) = environment(pheatmap)
           #               col.names = FALSE)
           # })
           
-          if(!any(lengths(venn_list[[venn_name]]))){
+          if(any(lengths(venn_list[[venn_name]]))){
             if(length(venn_list[[venn_name]]) > 5){
             venn_sub = cut(1:length(venn_list[[venn_name]]),ceiling(length(venn_list[[venn_name]])/5), labels = FALSE)
             for(i in unique(venn_sub)){
