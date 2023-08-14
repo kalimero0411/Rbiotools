@@ -559,6 +559,7 @@ PCA_3D = function(pca_type){
       av_encode_video(file_list,
                       output = paste0(init_params[["rlog_vst"]],"/PCA/",run_factor,".mp4"),
                       framerate = 60)
+      unlink("animation_merge",recursive = TRUE)
     }
   }
   }
@@ -579,10 +580,23 @@ PCA_3D = function(pca_type){
             htmlwidgets::saveWidget(p, temp_file, selfcontained = FALSE)
             webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"))
           }
+          
+          if(.Platform$OS.type == "unix"){
+            mclapply(1:361,gen_3d_plot,mc.cores = max(1,init_params[["threads"]] - 1))
+          }else{
+            cl = makeCluster(max(1,init_params[["threads"]] - 1))
+            registerDoParallel(cl)
+            foreach(degree = 1:361, .packages = c("plotly", "htmlwidgets", "webshot2")) %dopar% {
+              gen_3d_plot(degree)
+            }
+            stopCluster(cl)
+          }
+          
           file_list = normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
           av_encode_video(file_list,
                           output = paste0(init_params[["rlog_vst"]],"/PCA/",run_factor,".mp4"),
                           framerate = 60)
+          unlink("animation_merge",recursive = TRUE)
       }
     }
 
@@ -603,10 +617,23 @@ PCA_3D = function(pca_type){
             htmlwidgets::saveWidget(p, temp_file, selfcontained = FALSE)
             webshot2::webshot(temp_file, file = paste0("animation_merge/plot_", sprintf("%03d",degree), ".png"))
           }
+          
+          if(.Platform$OS.type == "unix"){
+            mclapply(1:361,gen_3d_plot,mc.cores = max(1,init_params[["threads"]] - 1))
+          }else{
+            cl = makeCluster(max(1,init_params[["threads"]] - 1))
+            registerDoParallel(cl)
+            foreach(degree = 1:361, .packages = c("plotly", "htmlwidgets", "webshot2")) %dopar% {
+              gen_3d_plot(degree)
+            }
+            stopCluster(cl)
+          }
+          
           file_list = normalizePath(path = list.files(path = "animation_merge/", pattern = "*.png",full.names = TRUE))
           av_encode_video(file_list,
                           output = paste0(init_params[["rlog_vst"]],"/PCA/",PCA_comp,".mp4"),
                           framerate = 60)
+          unlink("animation_merge",recursive = TRUE)
         }
       }
     }
@@ -1883,7 +1910,6 @@ environment(pheatmap_seed) = environment(pheatmap)
   #####    3D PCA    ######
   if(!is.null(init_params[["pca_type"]])){
     PCA_3D(pca_type = init_params[["pca_type"]])
-    unlink("animation_merge",recursive = TRUE)
   }
   
   #####    Create reports    ######
@@ -1923,6 +1949,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     }
   cat("Reports completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     }
+  save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","final.RData"))
   }
   
 cat("#####    End of DEseq analysis    #####\n")
