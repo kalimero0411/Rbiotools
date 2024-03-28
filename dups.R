@@ -31,21 +31,23 @@ if("stranded" %in% names(args)){
 }
 
 cat("\n##########\n\n")
-cat("Marking duplicates...\n")
-if(as.numeric(system(command = paste0("samtools view -f 0x400 ",args[["bam"]]," | head | wc -l"),intern = TRUE))){
+if(as.numeric(system(command = paste0("samtools view -f 0x400 -@ ",threads," ",args[["bam"]]," | head | wc -l"),intern = TRUE))){
+  cat("Duplicates already marked.\n")
   bamDuprm = args[["bam"]]
 }else{
+  cat("Marking duplicates...\n")
   bamDuprm = markDuplicates(dupremover="bamutil",
                             bam=normalizePath(args[["bam"]]),
                             path=dirname(system(command = "which bam",intern = TRUE)),
-                            rminput=FALSE)
+                            rminput=FALSE,
+                            threads = threads)
 }
 
 cat("Analyzing duplication rates...\n")
 dm = analyzeDuprates(bam = bamDuprm,
                      gtf = args[["gtf"]],
                      stranded = stranded,
-                     paired = as.numeric(system(command = paste0("samtools view -f 0x1 ",args[["bam"]]," | head | wc -l"),intern = TRUE)) > 0,
+                     paired = as.numeric(system(command = paste0("samtools view -f 0x1 -@ ",threads," ",args[["bam"]]," | head | wc -l"),intern = TRUE)) > 0,
                      threads = threads,
                      verbose = "verbose" %in% names(args))
 

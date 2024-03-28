@@ -1,4 +1,4 @@
-#####    RNA-seq analysis (RSEM / counts)    #####
+#####    RNA-seq analysis    #####
 
 packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel","tximport","readr",
              "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","plotly",
@@ -12,7 +12,11 @@ if(!"bcbioRNASeq" %in% rownames(installed.packages())){
   BiocManager::install("SingleCellExperiment")
   install.packages(
     pkgs = "bcbioRNASeq",
-    repos = c("https://r.acidgenomics.com",getOption("repos"))
+    repos = c(
+      "https://r.acidgenomics.com",
+      BiocManager::repositories()
+    ),
+    dependencies = TRUE
   )
 }
 library("bcbioRNASeq")
@@ -46,7 +50,8 @@ if(!interactive()){
                            "--input","Aligner output files path (RSEM, STAR or kallisto)",
                            "--mapper","One of RSEM, Kallisto, Salmon, HTseq-count, Counts",
                            "--design","DESeq2 design formula (e.g. ~Genotype+treatment)",
-                           "--exp","Experimental design file (Control first)",
+                           "--exp","Experimental design file",
+                           "--controls","Variables to assign as controls (e.g. Species=At,Salt=0,Heat=None)",
                            "--reduced","DESeq2 reduced design formula (Default = ~1)",
                            "--process","Process: ",
                            "","1 = Run settings",
@@ -104,6 +109,13 @@ if(!interactive()){
   
   if("exp" %in% names(args)){
     init_params[["exp_design"]] = path.expand(args[["exp"]])
+  }
+  
+  if("controls" %in% names(args)){
+    tmp_controls = strsplit(args[["controls"]],split = "=|,")[[1]]
+    init_params[["controls"]] = tmp_controls[seq(from = 2, to = length(tmp_controls), by = 2)]
+    names(init_params[["controls"]]) = tmp_controls[seq(from = 1, to = length(tmp_controls), by = 2)]
+    rm(tmp_controls)
   }
   
   init_params[["pca_type"]] = args[["3dpca"]]
@@ -323,11 +335,15 @@ if("Run settings" %in% init_params[["section"]]){
   init_params[["exp_design"]] = selectFile(caption = "Experimental design file",path = init_params[["wd"]])
   
   # Select variable reference
-  cat("Independent design: ~",paste(colnames(read.table(file = init_params[["exp_design"]],header = TRUE,row.names = 1,sep = "\t"))[-1],collapse = " + "),"\n",sep = "")
+  experimental_design = read.table(file = init_params[["exp_design"]],header = TRUE,row.names = 1,sep = "\t")
+  cat("Independent design: ~",paste(colnames(experimental_design)[-1],collapse = " + "),"\n",sep = "")
   cat("Interaction term = Factor1:Factor2 \n",sep = "")
   init_params[["design"]] = formula(readline(prompt = "Select main design formula: "))
   cat("Reduced design, such as batch factor. No design = ~1","\n",sep = "")
   init_params[["reduced_formula"]] = formula(readline(prompt = "Select reduced design formula: "))
+  init_params[["controls"]] = sapply(colnames(experimental_design)[-1], function(x){
+    select.list(choices = as.character(unique(experimental_design[[x]])),multiple = FALSE,title = paste0("Select control for: ",x),graphics = TRUE)
+  })
   if(select.list(choices = c("Yes","No"),multiple = FALSE,title = "Cluster rows in heatmaps?",graphics = TRUE)=="Yes"){
     init_params[["heatmap_row_clust"]] = TRUE
   }else{
@@ -372,7 +388,7 @@ if("Run settings" %in% init_params[["section"]]){
   experimental_design = experimental_design[,-1,drop = FALSE]
   init_params[["factors"]] = colnames(experimental_design)
   for(i in colnames(experimental_design)){
-    experimental_design[[i]] = relevel(as.factor(experimental_design[[i]]),ref = as.character(experimental_design[[i]][1]))
+    experimental_design[[i]] = relevel(as.factor(experimental_design[[i]]),ref = init_params[["controls"]][i])
   }
   write.table(x = cbind(Sample_name = rownames(experimental_design),File_name = file_names,experimental_design),file = "Experimental_design.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
   
@@ -382,6 +398,8 @@ if("Run settings" %in% init_params[["section"]]){
     }else{
       "isoforms"
     }
+  }else{
+    init_params[["genes_isoforms"]] = "genes"
   }
   
   # Lengths
@@ -1081,18 +1099,9 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
 
   # Output for WGCNA
-        data_vst = if(init_params[["rlog_vst"]] == "rlog"){
-          assay(varianceStabilizingTransformation(data_set_DESeq,blind = FALSE))
-        }else{
-          assay(data_set_transform)
-        }
-        data_rlog = if(init_params[["rlog_vst"]] == "rlog"){
-          assay(data_set_transform)
-        }else{
-          assay(rlog(data_set_DESeq,blind = FALSE))
-        }
-        save(list = c("data_vst","data_rlog","experimental_design"), file = "WGCNA_data.RData")
-        rm(data_vst,data_rlog)
+        data_vst = assay(varianceStabilizingTransformation(data_set,blind = FALSE))
+        save(list = c("data_vst","experimental_design"), file = "WGCNA_data.RData")
+        rm(data_vst)
 
   save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","transformed_data.RData"))
   }
@@ -1121,22 +1130,18 @@ environment(pheatmap_seed) = environment(pheatmap)
              cluster_rows = init_params[["heatmap_row_clust"]],
              annotation_col = as.data.frame(colData(data_set)),
              filename = paste0(init_params[["rlog_vst"]],"/Heatmaps/Heatmap_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],".png"))
-    if(exists("gene_subset")){
-      gene_subset = read.table(file = gene_subset_path,sep = "\t",header = FALSE)
-      # gene_subset$V2 = gsub(pattern = "[-]|[.]",replacement = "_",x = gene_subset$V2)
-      # gene_subset$V2[grep(pattern = "L-arginine biosynthesis I",x = gene_subset$V2)] = "L-arginine biosynthesis I"
-      # gene_subset$V2[grep(pattern = "glutaminyl-tRNA biosynthesis via transamidation",x = gene_subset$V2)] = "glutaminyl-tRNA biosynthesis"
-      # gene_subset$V2[grep(pattern = "superpathway of branched chain amino acid",x = gene_subset$V2)] = "amino acid biosynthesis"
-      rownames(gene_subset) = gene_subset$V1
-      gene_subset = gene_subset[,-1,drop = FALSE]
-      # colnames(gene_subset) = "Pathway"
-      pheatmap(data_set_matrix_scaled[rownames(data_set_matrix_scaled) %in% rownames(gene_subset),],
-               show_rownames = FALSE,
-               annotation_row = gene_subset,
-               annotation_col = as.data.frame(colData(data_set)),
-               filename = paste0(init_params[["rlog_vst"]],"/Heatmaps/Heatmap_gene_subset_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],".png")
-               )
-    }
+    # if(exists("gene_subset")){
+    #   gene_subset = read.table(file = gene_subset_path,sep = "\t",header = FALSE)
+    #   rownames(gene_subset) = gene_subset[[1]]
+    #   gene_subset = gene_subset[,-1,drop = FALSE]
+    #   data_scaled_sig = data_set_matrix_scaled[rownames(data_set_matrix_scaled) %in% rownames(deseq_results_sig[[1]]),]
+    #   pheatmap(data_set_matrix_scaled[rownames(data_set_matrix_scaled) %in% rownames(gene_subset),],
+    #            show_rownames = FALSE,
+    #            annotation_row = gene_subset,
+               # annotation_col = as.data.frame(colData(data_set)),
+    #            filename = paste0(init_params[["rlog_vst"]],"/Heatmaps/Heatmap_gene_subset_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],".png")
+    #            )
+    # }
     save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
     cat("Matrices and heatmaps completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     }
@@ -1531,8 +1536,8 @@ environment(pheatmap_seed) = environment(pheatmap)
 
       volcano_plot = ggplot(volcano_data, aes(log2FoldChange, -log(padj,10))) +
         geom_point(aes(color = Expression,alpha = Expression), size = 3) +
-        xlab(expression("log"[2]*"FC")) +
-        ylab(expression("-log"[10]*"FDR")) +
+        xlab(expression("log"[2]*"(Fold change)")) +
+        ylab(expression(paste("-log"[10]*"(",italic("p"),"-value)"))) +
         scale_color_manual(values = c("Up-regulated" = "dodgerblue3", "Unchanged" = "gray50", "Down-regulated" = "firebrick3")) +
         scale_alpha_manual(values = c("Up-regulated" = 1,"Unchanged" = 0.25,"Down-regulated" = 1)) +
         guides(colour = guide_legend(override.aes = list(size = 3))) +
@@ -1816,24 +1821,12 @@ environment(pheatmap_seed) = environment(pheatmap)
         dir.create(paste0(init_params[["rlog_vst"]],"/top_GO_annotation/topGO_DEGs"),showWarnings = FALSE)
         if(exists("venn_calc") & any(init_params[["venn_GO"]] > 1)){
           lapply(names(venn_calc)[init_params[["venn_GO"]]],function(x){
-                   lapply(venn_calc[[x]],function(y){
-                     sapply(y,function(z){
-                       write.table(z,file = paste0(init_params[["rlog_vst"]],"/Significant_DEGs/Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-                       if(init_params[["remove_isoforms"]]){
-                         z = unique(sub(pattern = init_params[["isoform_pattern"]],replacement = "",x = z))
-                       }
-                       topGO_fun(DE_genes_sig = z,
-                                 compare_var = paste0("Venn_",x,"_",paste(attr(z,which = "Sample"),collapse = "--")),
-                                 k = "venn")
-                                 })
-                     })
-            })
-        }
         cat("#####    Starting topGO annotation    ######\n")
         for(k in if("k_clusters" %in% names(init_params)){
           c("all",1:init_params[["k_clusters"]])
         }else{
-          "all"}){
+          "all"
+          }){
           if(k == "all"){
             DE_genes_sig = deseq_sig
             if(init_params[["remove_isoforms"]]){
@@ -1849,9 +1842,11 @@ environment(pheatmap_seed) = environment(pheatmap)
             topGO_fun(DE_genes_sig = DE_genes_sig,compare_var = compare_var,k = k)
           }
         }
+          
         # try(system(command = paste0("for i in $(find . -type f -name "*.ps"); do convert -density 800 -rotate 90 $i ${i/.ps/.png} && rm -f $i; done")))
         cat("topGO analysis completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
-      }
+          }
+        )
 
       ##### Create Wordcloud #####
       if("Wordcloud" %in% init_params[["section"]]){
@@ -1949,6 +1944,8 @@ environment(pheatmap_seed) = environment(pheatmap)
     }
   cat("Reports completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     }
+  }
+  }
   save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","final.RData"))
   }
   

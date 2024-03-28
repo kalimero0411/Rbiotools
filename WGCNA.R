@@ -124,7 +124,7 @@ if(!interactive()){
       maxBlockSize = readline(prompt = "Select maximum block size: ")
     }
   }
-  minModuleSize = readline(prompt = "Select minimum module size (Typically 50): ")
+  minModuleSize = as.numeric(readline(prompt = "Select minimum module size (Typically 50): "))
   setwd(wd)
   data_format = select.list(choices = c("rds","tsv","csv"),multiple = FALSE,title = "Select data format")
   min_expression = as.numeric(readline(prompt = "Minimum expression: "))
@@ -133,9 +133,8 @@ if(!interactive()){
 
 enableWGCNAThreads(nThreads = threads)
 
-if(!exists("data")){
-data = t(data_vst[apply(data_vst,1,max) > min_expression,])
-data_rlog_scaled = scale(data_rlog, center=TRUE, scale=TRUE)
+if(!exists("input_mat")){
+  input_mat = t(data_vst[apply(data_vst,1,max) > min_expression,])
 if(!is.null(rep_factors)){
   experiment_reps = factor(paste(experimental_design[,rep_factors[1]],sep = "."))
   if(length(rep_factors) > 1){
@@ -146,17 +145,17 @@ if(!is.null(rep_factors)){
 }
 }
 
-if(goodSamplesGenes(data, verbose = 0)$allOK){
+if(goodSamplesGenes(input_mat, verbose = 0)$allOK){
   cat("All samples and genes passed QC !\n")
 }else{
-  cat(paste0("Problematic genes: ",paste(colnames(data)[!goodSamplesGenes(data, verbose = 0)$goodGenes], collapse = ", "),"\n"))
-  cat(paste0("Problematic samples: ",paste(rownames(data)[!goodSamplesGenes(data, verbose = 0)$goodSamples],collapse = ", "),"\n"))
+  cat(paste0("Problematic genes: ",paste(colnames(input_mat)[!goodSamplesGenes(input_mat, verbose = 0)$goodGenes], collapse = ", "),"\n"))
+  cat(paste0("Problematic samples: ",paste(rownames(input_mat)[!goodSamplesGenes(input_mat, verbose = 0)$goodSamples],collapse = ", "),"\n"))
   stop("Problem with the data (goodSamplesGenes failed)!", call. = TRUE)
 }
 
 if("power" %in% section){
   powers = c(c(1:10), seq(from = 12, to=40, by=2))
-  sft = pickSoftThreshold(data,
+  sft = pickSoftThreshold(input_mat,
                         powerVector = powers,
                         verbose = 5,
                         networkType = "signed")
@@ -170,7 +169,7 @@ plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      main = paste("Scale independence"))
 text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      labels=powers,cex=cex1,col="red")
-abline(h=0.90,col="red")
+abline(h=0.80,col="red")
 
 plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
@@ -183,7 +182,7 @@ save.image(paste0(Experiment_name,"_sft.RData"))
 
 if("TOM" %in% section){
   if(!blockwise){
-    dissTOM = 1 - TOMsimilarity(adjacency(data,
+    dissTOM = 1 - TOMsimilarity(adjacency(input_mat,
                                           power = softPower,
                                           type = "signed"),
                                 TOMType="signed")
@@ -192,7 +191,6 @@ if("TOM" %in% section){
     
     # Tree clustering
     geneTree = flashClust(as.dist(dissTOM), method = "average")
-    sizeGrWindow(12,9)
     pdf(file = paste0("Gene_Dendrogram_",Experiment_name,".pdf"), width = 9, height = 6)
     plot(geneTree, xlab = "", sub = "", main = "Gene clustering on TOM-based dissimilarity",
          labels = FALSE, hang = 0.04)
@@ -208,11 +206,10 @@ if("TOM" %in% section){
     
     # Plotting modules
     dynamicColors = labels2colors(dynamicMods)
-    names(dynamicColors) = colnames(data)
-    write.table(file = paste0("Gene_module_map_",Experiment_name,".txt"),data.frame(Gene = colnames(data),Module = dynamicColors),col.names = TRUE,quote = FALSE,row.names = FALSE,sep = "\t")
+    names(dynamicColors) = colnames(input_mat)
+    write.table(file = paste0("Gene_module_map_",Experiment_name,".txt"),data.frame(Gene = colnames(input_mat),Module = dynamicColors),col.names = TRUE,quote = FALSE,row.names = FALSE,sep = "\t")
     write.table(table(dynamicColors), file = paste0("Modules_table_",Experiment_name,".txt"))
     
-    sizeGrWindow(8,6)
     pdf(file = paste0("Gene_dendrogram_modules_",Experiment_name,".pdf"), width = 9, height = 6)
     plotDendroAndColors(dendro = geneTree,
                         colors = dynamicColors,
@@ -225,20 +222,19 @@ if("TOM" %in% section){
     while(!is.null(dev.list())) dev.off()
     
     # Calculate modules eigenvalues
-    MEList = moduleEigengenes(data, colors = dynamicColors)
+    MEList = moduleEigengenes(input_mat, colors = dynamicColors)
     MEDiss = 1-cor(MEList$eigengenes)
     write.csv(MEDiss, file = paste0("MEs_modules_",Experiment_name,".csv"))
     write.csv(MEList$eigengenes, file = paste0("MEs_conditions_",Experiment_name,".csv"))
     
     METree = hclust(as.dist(MEDiss), method = "average")
-    sizeGrWindow(7, 6)
     pdf(file = paste0("Dendrogram_module_eigenvalues_",Experiment_name,".pdf"), width = 9, height = 6)
     plot(METree, main = "Clustering module eigenvalues",
          xlab = "", sub = "")
     while(!is.null(dev.list())) dev.off()
     
   }else{
-    blockTOM = blockwiseModules(data,
+    blockTOM = blockwiseModules(input_mat,
                                 maxBlockSize = maxBlockSize,
                                 power = softPower,
                                 TOMType = "signed",
@@ -267,7 +263,7 @@ if("TOM" %in% section){
       while(!is.null(dev.list())) dev.off()
     }
     
-    MEList = moduleEigengenes(data, colors = module_colors)
+    MEList = moduleEigengenes(input_mat, colors = module_colors)
     METree = hclust(as.dist(1-cor(MEList$eigengenes)), method = "average")
     png(filename = paste0("Eigengene_module_clustering",Experiment_name,".png") ,width = 1920, height = 1080, units = "px")
     plot(METree,
@@ -323,7 +319,7 @@ save(list = ls()[grep(pattern = "dissTOM|blockTOM",x = ls(),invert = TRUE)],file
 
 if("top genes" %in% section){
 # Top membership genes
-geneModuleMembership = as.data.frame(cor(data, orderMEs(moduleEigengenes(data, dynamicColors)$eigengenes), use = "p"))
+geneModuleMembership = as.data.frame(cor(input_mat, orderMEs(moduleEigengenes(input_mat, dynamicColors)$eigengenes), use = "p"))
 topgenes = lapply(colnames(geneModuleMembership),function(module){
   temp = geneModuleMembership[[module]]
   names(temp) = rownames(geneModuleMembership)
@@ -464,11 +460,7 @@ invisible(sapply(names(top_sig_stats),function(me){
 
 write.table(names(top_sig_stats),file = "top_genes_ttest.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
 
-if(exists("data_rlog")){
-  data_topgenes_scaled = scale(data_rlog)[rownames(data_rlog) %in% names(top_sig_stats),]
-}else{
   data_topgenes_scaled = scale(data_vst)[rownames(data_vst) %in% names(top_sig_stats),]
-}
 
 data_topgenes_scaled = data_topgenes_scaled[,order(match(coldata[[1]],levels(coldata[[1]]))),drop = FALSE]
 coldata = coldata[order(match(coldata[[1]],levels(coldata[[1]]))),,drop = FALSE]
@@ -483,23 +475,19 @@ pheatmap(data_topgenes_scaled,
 
 #### DEG heatmaps
 
-# anno_col = data.frame(Module = dynamicColors)
-# rownames(anno_col) = names(dynamicColors)
-# pheatmap(data_rlog_scaled[rownames(data_rlog_scaled) %in% degs_all,,drop = FALSE],show_rownames = FALSE,annotation_row = anno_col)
-
-AE = t(moduleEigengenes(data[,colnames(data) %in% degs_all,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_all])[["averageExpr"]])
+AE = t(moduleEigengenes(input_mat[,colnames(input_mat) %in% degs_all,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_all])[["averageExpr"]])
 rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
 png(filename = paste0("DEG_heamap_all_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
 pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (all changes)",fontsize = 20)
 while(!is.null(dev.list())) dev.off()
 
-AE = t(moduleEigengenes(data[,colnames(data) %in% degs_up,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_up])[["averageExpr"]])
+AE = t(moduleEigengenes(input_mat[,colnames(input_mat) %in% degs_up,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_up])[["averageExpr"]])
 rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
 png(filename = paste0("DEG_heamap_up_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
 pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (upregulated)",fontsize = 20)
 while(!is.null(dev.list())) dev.off()
 
-AE = t(moduleEigengenes(data[,colnames(data) %in% degs_down,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_down])[["averageExpr"]])
+AE = t(moduleEigengenes(input_mat[,colnames(input_mat) %in% degs_down,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_down])[["averageExpr"]])
 rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
 png(filename = paste0("DEG_heamap_down_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
 pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (downregulated)",fontsize = 20)
