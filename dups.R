@@ -2,13 +2,20 @@ packages = c("dupRadar","R.utils","parallel")
 
 invisible(
   suppressMessages(
-    sapply(packages,FUN = function(x) {
-      if(!x %in% rownames(installed.packages())){
+    if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
+      cat("Installing BiocManager\n",sep = "")
+      install.packages("BiocManager")
+    }))
+
+cat("#####   Loading packages   #####\n")
+invisible(
+  suppressMessages(
+    lapply(packages,function(x){
+      if(!require(x,character.only = TRUE,quietly = TRUE)){
         cat("Installing package: ",x,"\n",sep = "")
         BiocManager::install(x,update = FALSE,ask = FALSE)
+        library(x,character.only = TRUE,quietly = TRUE)
       }
-      cat("#####   Loading package: ",x,"   #####\n",sep = "")
-      library(x,character.only = TRUE)
     })))
 
 threads = detectCores()

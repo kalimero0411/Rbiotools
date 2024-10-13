@@ -2,15 +2,23 @@
 
 packages=c("methylKit","Rsamtools","genomation","rChoiceDialogs","goseq","BiocParallel","parallel","tools","factoextra",
            "R.utils","ggplot2")
+
 invisible(
   suppressMessages(
-    sapply(packages,FUN = function(x) {
-      # if(!x %in% rownames(installed.packages())){
-      #   cat("Installing package: ",x,"\n", sep = "")
-      #   BiocManager::install(x,update = FALSE,ask = FALSE)
-      # }
-      cat("#####   Loading package: ",x,"   #####\n", sep = "")
-      library(x,character.only = TRUE)
+    if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
+      cat("Installing BiocManager\n",sep = "")
+      install.packages("BiocManager")
+    }))
+
+cat("#####   Loading packages   #####\n")
+invisible(
+  suppressMessages(
+    lapply(packages,function(x){
+      if(!require(x,character.only = TRUE,quietly = TRUE)){
+        cat("Installing package: ",x,"\n",sep = "")
+        BiocManager::install(x,update = FALSE,ask = FALSE)
+        library(x,character.only = TRUE,quietly = TRUE)
+      }
     })))
 
 options(max.print = 2000000000)

@@ -6,7 +6,25 @@ packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel"
              "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils",
              "VennDiagram","wordcloud","tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite")
 
-if(!"bcbioRNASeq" %in% rownames(installed.packages())){
+invisible(
+  suppressMessages(
+    if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
+      cat("Installing BiocManager\n",sep = "")
+      install.packages("BiocManager")
+    }))
+
+cat("#####   Loading packages   #####\n")
+invisible(
+  suppressMessages(
+    lapply(packages,function(x){
+      if(!require(x,character.only = TRUE,quietly = TRUE)){
+        cat("Installing package: ",x,"\n",sep = "")
+        BiocManager::install(x,update = FALSE,ask = FALSE)
+        library(x,character.only = TRUE,quietly = TRUE)
+      }
+    })))
+
+if(!require("bcbioRNASeq",character.only = TRUE,quietly = TRUE)){
   BiocManager::install("BiocIO")
   BiocManager::install("MultiAssayExperiment")
   BiocManager::install("SingleCellExperiment")
@@ -18,19 +36,8 @@ if(!"bcbioRNASeq" %in% rownames(installed.packages())){
     ),
     dependencies = TRUE
   )
+  library("bcbioRNASeq")
 }
-library("bcbioRNASeq")
-
-invisible(
-  suppressMessages(
-    sapply(packages,FUN = function(x) {
-       if(!x %in% rownames(installed.packages())){
-         cat("Installing package: ",x,"\n",sep = "")
-         BiocManager::install(x,update = FALSE,ask = FALSE)
-       }
-      cat("#####   Loading package: ",x,"   #####\n",sep = "")
-      library(x,character.only = TRUE)
-    })))
 
 options(stringsAsFactors = FALSE)
 
@@ -1847,6 +1854,8 @@ environment(pheatmap_seed) = environment(pheatmap)
         cat("topGO analysis completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
           }
         )
+        }
+      }
 
       ##### Create Wordcloud #####
       if("Wordcloud" %in% init_params[["section"]]){
@@ -1894,7 +1903,8 @@ environment(pheatmap_seed) = environment(pheatmap)
         cat("\n")
       }
   save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
-  }
+        }
+      }
 
     if("Variable heatmap and report" %in% init_params[["section"]]){
   #####    Create variable distance heat map    ######
@@ -1944,9 +1954,6 @@ environment(pheatmap_seed) = environment(pheatmap)
     }
   cat("Reports completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     }
-  }
-  }
   save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","final.RData"))
-  }
   
 cat("#####    End of DEseq analysis    #####\n")
