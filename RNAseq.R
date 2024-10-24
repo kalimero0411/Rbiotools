@@ -394,8 +394,10 @@ if("Run settings" %in% init_params[["section"]]){
   file_names = experimental_design[[1]]
   experimental_design = experimental_design[,-1,drop = FALSE]
   init_params[["factors"]] = colnames(experimental_design)
-  for(i in colnames(experimental_design)){
-    experimental_design[[i]] = relevel(as.factor(experimental_design[[i]]),ref = init_params[["controls"]][i])
+  if("controls" %in% names(init_params)){
+    for(i in colnames(experimental_design)){
+      experimental_design[[i]] = relevel(as.factor(experimental_design[[i]]),ref = init_params[["controls"]][i])
+    }
   }
   write.table(x = cbind(Sample_name = rownames(experimental_design),File_name = file_names,experimental_design),file = "Experimental_design.txt",quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
   

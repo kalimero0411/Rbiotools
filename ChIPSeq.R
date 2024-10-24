@@ -24,9 +24,9 @@ invisible(
 options(stringsAsFactors = FALSE)
 
 ###### Cluster commands ######
-args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-must_args = c("rdata","wd","name","annotation","t")
 if(!interactive()){
+  args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
+  must_args = c("rdata","wd","name","annotation","t")
   if(!all(must_args %in% names(args))){
     help = matrix(data = c("--rdata    ","RData file path",
                            "--wd","Working directory path",

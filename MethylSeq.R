@@ -25,9 +25,9 @@ options(max.print = 2000000000)
 options(stringsAsFactors = FALSE)
 
 ###### Cluster commands ######
-args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-must_args = c("rdata","wd","name","bismark","import","context","t")
-if(length(args)){
+if(!interactive()){
+  args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
+  must_args = c("rdata","wd","name","bismark","import","context","t")
   if(!all(must_args %in% names(args))){
     help = matrix(data = c("--rdata    ","RData file path",
                     "--wd","Working directory path",

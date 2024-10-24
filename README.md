@@ -1,8 +1,10 @@
 # Rbiotools
 R scripts for bioinformatics
 
+
+## RNAseq
+### Analyze RNA sequencing data
 ```
-RNAseq
 	--rdata	RData file path
         --wd	Working directory path
         --name	Experiment name
@@ -48,9 +50,10 @@ RNAseq
         --arg	Additional R arguments (multiple arguments in separate flags)
 ```
 
-```
-ChIPSeq
 
+## ChIPSeq
+### Analyze MACS3 output of ChIP sequencing
+```
 	--rdata	RData file path
 	--wd	Working directory path
 	--name	Experiment name (all data will output to a directory by that name in the working directory)
@@ -63,9 +66,10 @@ ChIPSeq
 
 - First set-up in interactive R session, then run in shell (optional).
 
-```
-MethylSeq
 
+## MethylSeq
+### Analyze Bismark output of Bisulfite sequencing
+```
 	--rdata	RData file path
 	--wd	Working directory path
 	--name	Experiment name (all data will output to a directory by that name in the working directory)
@@ -79,15 +83,40 @@ MethylSeq
 
 - First set-up in interactive R session, then run in shell (optional).
 
+## WGCNA
+### Perform WGCNA clustering on RNAseq data
 ```
-3D_PCA_run
+                           --rdata	RData file path
+                           --wd	Working directory path
+                           --name	Experiment name
+                           --factors	Experimantal factors to test(Seperated by comma; Default = All factors)
+                           --power	Scale Free Topology Model Fit
+                           --TOM	Specify sft value and create Topology overlap matrix (TOM)
+                           --blockwise	Perform blockwise calculation for TOM
+                           --minmod	Minimum module size
+                           --maxblock	Maximum block size (only used in blockwise)
+                           --min_exp	Minimum expression for all samples of a gene
+                           --threads	Number of CPU threads
+                           --arg	Additional R arguments (multiple arguments in separate flags)
+```
+                           
 
-	-d | --dir      DESeq2 output directory
-        -f | --factors  Factors for 3D PCA (e.g. factor1,factor2,factor3; Default = All factors)
-        -l | --list     List all available factors for a specific analysis
-        -p | --pca      Types of PCA to return (1 = Single factor, 2 = Multi-factor, 3 = DEGs; e.g. 13; Default = 123)
-        -r | --rscript  Path to PCA_3D.R (Defaults bash script directory)
-        -h | --help     Display help
+## dups
+### Create duplcate plot from FASTQ alignment
+```
+	--bam	Path to duplicate marked / unmarked BAM file
+	--gtf	GTF file used in the alignment
+	--stranded	Strandedness of the FASTQ file (0 = unstranded [default]; 1 = stranded; 2 = reverse)
+	--verbose	Verbose
 ```
 
-- The DESeq2 directory should include PCA_data.RData, created by RNAseq.R
+## Ks
+### Ks ridge plot from MCScanX output
+```
+                         --gff	Path to folder with gff files
+                         --kaks	Path to folder with ka/ks collinearity files
+                         --order	Order of species by kaks file names (without extention, comma separated)
+                         --color	Species group number (for color designation, e.g. '1,1,2,2,2,3,3')
+                         --ks_cutoff	Cutoff for Ks plot (Default = 2)
+                         --regex	Regex to rename files to samples
+```
