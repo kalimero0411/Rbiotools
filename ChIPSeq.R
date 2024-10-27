@@ -117,7 +117,7 @@ if(!interactive()){
     init_params[["threads"]] = detectCores()
   }
     
-  cat("Number of threads: ",threads,"\n", sep = "")
+  cat("Number of threads: ",init_params[["threads"]],"\n", sep = "")
   
   ##### Additional arguments #####
   add_args = unname(args[which(names(args) %in% "arg")])
