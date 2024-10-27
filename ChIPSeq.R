@@ -61,14 +61,14 @@ if(!interactive()){
   }
   
   init_params[["wd"]] = args[["wd"]]
-  setwd(init_params[["wd"]])
-  init_params[["Experiment_name"]] = args[["name"]]
+  init_params[["name"]] = args[["name"]]
   init_params[["annotation"]] = normalizePath(args[["annotation"]])
   init_params[["exp"]] = normalizePath(args[["exp"]])
   if("org" %in% names(args)){
-    init_params[["org_db"]] = suppressMessages(BiocManager::available(pattern = "org[.](.*)[.]db",include_installed = TRUE))[args[["org"]]]
+    init_params[["org_db"]] = suppressMessages(BiocManager::available(pattern = "org[.](.*)[.]db",include_installed = TRUE))[as.numeric(args[["org"]])]
       if(!suppressMessages(require(init_params[["org_db"]],character.only = TRUE,quietly = TRUE))){
         BiocManager::install(init_params[["org_db"]],update = FALSE,ask = FALSE)
+        library(init_params[["org_db"]],character.only = TRUE)
       }
       org_db_link = get(init_params[["org_db"]])
       if("key" %in% names(args)){
@@ -110,7 +110,7 @@ if(!interactive()){
   }
   
   cat("Working directory: ",getwd(),"\n", sep = "")
-  cat("Experiment name: ",Experiment_name,"\n", sep = "")
+  cat("Experiment name: ",init_params[["name"]],"\n", sep = "")
   if("t" %in% names(args)){
     init_params[["threads"]] = as.numeric(args[["t"]])
   }else{
@@ -133,7 +133,6 @@ init_params[["threads"]] = detectCores()
 ###### Set working directory ######
 cat("#####   Select working directory   #####\n")
 init_params[["wd"]] = selectDirectory(caption = "Choose working directory")
-setwd(init_params[["wd"]])
 
 init_params[["name"]] = as.character(readline(prompt = "Select experiment name: "))
 init_params[["exp"]] = selectFile(caption = "Select experimental design file: ",path = getwd())
@@ -160,6 +159,8 @@ if(init_params[["org_db"]] != ""){
 }
 init_params[["genome"]] = selectFile(caption = "Select genome file: ",path = getwd())
 }
+
+setwd(init_params[["wd"]])
 
 ##### Register threads #####
 if(.Platform$OS.type == "unix"){
@@ -276,7 +277,7 @@ tmp[i,] = c(experimental_design[i,"Name"],BED_file)
 }
 experimental_design = tmp
 rm(tmp)
-save.image(paste0(Experiment_name,"_aligned.RData"))
+save.image(paste0(init_params[["name"]],"_aligned.RData"))
 cat("#####  FASTQ normalization, mapping and peak detection run finished in ",format(round(Sys.time()-start_time,2),nsmall=2),"   #####\n", sep = "")
 }
 
