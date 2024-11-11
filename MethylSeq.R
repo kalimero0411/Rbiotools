@@ -1,7 +1,7 @@
 #######     DNA methylation analysis      ##########
 
-packages=c("methylKit","Rsamtools","genomation","rChoiceDialogs","goseq","BiocParallel","parallel","tools","factoextra",
-           "R.utils","ggplot2")
+packages=c("methylKit","Rsamtools","genomation","goseq","BiocParallel","parallel","tools","factoextra",
+           "R.utils","ggplot2","rstudioapi","matrixStats")
 
 invisible(
   suppressMessages(
@@ -21,21 +21,23 @@ invisible(
       }
     })))
 
-options(max.print = 2000000000)
 options(stringsAsFactors = FALSE)
+init_params = list()
 
 ###### Cluster commands ######
 if(!interactive()){
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-  must_args = c("rdata","wd","name","bismark","import","context","t")
+  must_args = c("wd","name")
   if(!all(must_args %in% names(args))){
-    help = matrix(data = c("--rdata    ","RData file path",
-                    "--wd","Working directory path",
+    help = matrix(data = c("--wd","Working directory",
                     "--name","Experiment name (all data will output to a directory by that name in the working directory)",
-                    "--bismark","Bismark output BAM files path",
-                    "--import","Import BAM files (Y), do not import BAM files (N) or only import BAM files (O); default = N",
-                    "--context","Methylation context: CpG, CHG or CHH",
-                    "--savedb","Data will be output into flat files (for reduced RAM usage); default = FALSE",
+                    "--bismark","Bismark output BAM files",
+                    "--analyze","Skip reading input and Analyze data from RData file",
+                    "--read","Only read data and output RData file (don't analyze)",
+                    "--anno","Annotation file (12 column bed format; convert GFF/GTF with agat_convert_sp_gff2bed.pl)",
+                    "--exp","Experimental design file",
+                    "--control","Control variable for each factor (comma separated; in the same order as in --exp; Default = first variable in each factor)",
+                    "--context","Methylation context: CpG, CHG and CHH (Default = All)",
                     "--t","Number of compute threads",
                     "--arg","Additional R arguments (multiple arguments in separate flags)")
                   ,ncol = 2,byrow = TRUE)
@@ -43,55 +45,56 @@ if(!interactive()){
     stop(paste0("Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
   }
   
-  cat("Loading RData file: ",args[["rdata"]],"\n", sep = "")
-  load(args[["rdata"]])
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-  wd = args[["wd"]]
-  Experiment_name = args[["name"]]
-  section = c("Run dataset on regions (Exons/Introns/Promoters/TSSes)","Run all regions (RAM/CPU intensive)")
-  if(args[["import"]] == "O"){
-    section = "Import dataset"
+  init_params[["wd"]] = normalizePath(args[["wd"]])
+  init_params[["name"]] = args[["name"]]
+  
+  if("read" %in% names(args) == "analyze" %in% names(args)){
+    init_params[["section"]] = c("Read","Analyze")
   }else{
-    if(args[["import"]] == "Y"){
-      section =	c(section,"Import dataset")
-  }else{
-    section =	section[!section %in% "Import dataset"]
+    init_params[["section"]] = c("Read","Analyze")[c("read" %in% names(args),"analyze" %in% names(args))]
+    if("Analyze" %in% init_params[["section"]]){
+      init_params[["analyze"]] = normalizePath(args[["analyze"]])
     }
   }
-  
-  dir.create(path = paste0(wd,"/",Experiment_name),showWarnings = FALSE)
-  setwd(paste0(wd,"/",Experiment_name))
-  cat("Working directory: ",getwd(),"\n", sep = "")
-  cat("Experiment name: ",Experiment_name,"\n", sep = "")
-  
-  experimental_design[,"BAM_file"] = paste0("/",args[["bismark"]],basename(experimental_design[,"BAM_file"]))
-  save_db = "savedb" %in% names(args)
-  regions = NULL
-  if("Run dataset on regions (Exons/Introns/Promoters/TSSes)" %in% section){
-    regions = c("promoters","exons","introns","TSSes")
-  }
-  if("Run all regions (RAM/CPU intensive)" %in% section){
-    regions = c(regions,"all_regions")
+  if("Read" %in% init_params[["section"]]){
+    init_params[["exp"]] = normalizePath(args[["exp"]])
+    experimental_design = read.table(file = init_params[["exp"]],header = TRUE,sep = "\t")
+    experimental_design[["File"]] = normalizePath(experimental_design[["File"]])
+    if("control" %in% names(args)){
+      init_params[["controls"]] = strsplit(x = gsub(pattern = " ",replacement = "",args[["control"]]),split = ",")[[1]]
+    }else{
+      init_params[["controls"]] = experimental_design[1,3:ncol(experimental_design)]
     }
-  context = args[["context"]]
-  threads = as.numeric(args[["t"]])
-  cat("Number of threads: ",threads,"\n", sep = "")
+    names(init_params[["controls"]]) = colnames(experimental_design)[3:ncol(experimental_design)]
+    init_params[["annotation"]] = normalizePath(args[["anno"]])
+  }
+  
+  if("context" %in% names(args)){
+    init_params[["context"]] = c("CpG","CHG","CHH")[sapply(c("cpg","chg","chh"),function(x){
+      any(grepl(pattern = paste0("^",x),strsplit(gsub(pattern = " ",replacement = "",args[["context"]]),split = ",")[[1]],ignore.case = TRUE))
+    })]
+  }else{
+    init_params[["context"]] = c("CpG","CHG","CHH")
+  }
+  
+  if("t" %in% names(args)){
+    init_params[["threads"]] = as.numeric(args[["t"]])
+  }else{
+    init_params[["threads"]] = detectCores()
+  }
+    
+  cat("Number of threads: ",init_params[["threads"]],"\n", sep = "")
   
   ##### Additional arguments #####
+  if("arg" %in% names(args)){
   add_args = unname(args[which(names(args) %in% "arg")])
   for(i in seq_along(add_args)){
     cat("Performing: ",add_args[[i]],"\n", sep = "")
-    eval(parse(text = add_args[[i]]))
+    eval(parse(text = add_args[[i]]),envir = .GlobalEnv)
+  }
   }
   
-  ##### Register threads #####
-  if(.Platform$OS.type == "unix"){
-    register(BPPARAM = MulticoreParam(workers = threads))
-  }else{
-    register(BPPARAM = SerialParam())
-  }
-  
-
 ##### RData output ######
 .classes = NULL
 for(.obj in ls()){
@@ -102,464 +105,380 @@ rm(.classes,.obj)
 
 }else{
   
-  threads = detectCores()
-  
-  ##### Register threads #####
-  if(.Platform$OS.type == "unix"){
-    register(BPPARAM = MulticoreParam(workers = threads))
-  }else{
-    register(BPPARAM = SerialParam())
-  }
+  init_params[["threads"]] = detectCores()
   
   ###### Set working directory ######
-  wd=rchoose.dir(caption = "Choose working directory:")
-  setwd(wd)
-  
-  ##### Setup experiment name ######
-  if(!exists("Experiment_name")){Experiment_name = as.character(readline(prompt = "Select experiment name: "))
-  if(any(list.files(wd)==Experiment_name)){
-    if(rselect.list(choices = c("Overwrite","Create new folder"),multiple = FALSE,title = "Folder exists...")=="Create new folder"){
-      Experiment_name_check = Experiment_name
-      i=2
-      while(any(list.files(wd)==Experiment_name_check)){
-        cat("Experiment ",Experiment_name_check," already exists. Changing name...\n", sep = "")
-        Experiment_name_check = paste0(Experiment_name,"_(",i,")")
-        i=i+1
-      }
-      Experiment_name=Experiment_name_check
-      rm(Experiment_name_check)
-    }
-  }
-  dir.create(Experiment_name,showWarnings = FALSE)
-  }
-  setwd(paste0(wd,"/",Experiment_name))
-  
-  section = rselect.list(choices = c("Input settings","Import dataset","Run dataset on regions (Exons/Introns/Promoters/TSSes)","Run all regions (RAM/CPU intensive)"),multiple = TRUE,title = "Select run")
-  
-  ###### Run settings ######
-  if("Input settings" %in% section){
-    
+  init_params[["wd"]] = selectDirectory(caption = "Select working directory")
+  init_params[["name"]] = readline(prompt = "Experiment name: ")
+  init_params[["section"]] = select.list(choices = c("Read","Analyze"),multiple = TRUE,title = "Skip Reading data?",preselect = c("Read","Analyze"))
+  if("Analyze" %in% init_params[["section"]] & !"Read" %in% init_params[["section"]]){
+    init_params[["analyze"]] = selectFile(caption = "Select RData file to analyze")
+  }else{
     ###### Input analysis settings ######
     cat("#####   Input analysis settings   #####\n")
-    if(rselect.list(choices = c("Yes","No"),multiple = FALSE,title = "Save to flat files?") == "Yes"){
-      save_db = TRUE
-    }else{
-      save_db = FALSE
+
+    init_params[["exp"]] = normalizePath(selectFile(caption = "Select experimental design file",path = init_params[["wd"]]))
+    experimental_design = read.table(file = init_params[["exp"]],header = TRUE,sep = "\t")
+    experimental_design[["File"]] = normalizePath(experimental_design[["File"]])
+    init_params[["controls"]] = c()
+    for(i in 3:ncol(experimental_design)){
+      init_params[["controls"]] = c(init_params[["controls"]],select.list(unique(experimental_design[[i]]),multiple = FALSE,title = "Select control variable",graphics = TRUE))
     }
-    experimental_design = data.frame(Sample = NA_character_,
-                                     Factor = NA_character_,
-                                     Factor_name = NA_character_,
-                                     BAM_file = rchoose.files(caption = "Select sorted and indexed BAM files: "),
-                                     Raw_DB_file = NA_character_,
-                                     stringsAsFactors = FALSE)
-    assembly = readline(prompt = "Organism: ")
-    context = rselect.list(choices = c("CpG","CHG","CHH"),multiple = FALSE,title = "Select contexts to analyze")
-    cat("#####   Including following contexts in analysis: ",paste0(context,collapse = ", "),"   #####\n", sep = "")
-    window_size=as.numeric(readline(prompt = "Window size for differentially methylated regions (default = 100): "))
-    alpha = as.numeric(readline(prompt = "pvalue cutoff for methylation difference (default = 0.05): "))
-    methylation_diff=as.numeric(readline(prompt = "Methylation difference cutoff percent (default = 25): "))
-    if(is.na(window_size)){window_size = 100}
-    if(is.na(alpha)){alpha = 0.05}
-    if(is.na(methylation_diff)){methylation_diff = 25}
+    names(init_params[["controls"]]) = colnames(experimental_design[3:ncol(experimental_design)])
     
-    ###### Input BAM files with metadata (these have to be sorted and indexed with samtools) ######
-    cat("#####   Input samples and metadata   #####\n")
-    for(i in 1:nrow(experimental_design)){
-      experimental_design[[i,"Sample"]] = readline(prompt = paste0("Sample name for ",basename(experimental_design[[i,"BAM_file"]]),": "))
-      experimental_design[[i,"Factor"]] = as.numeric(readline(prompt = "Control replicates = 0 / Test replicates = 1,2,3,etc.: "))
-    }
-    experimental_design = experimental_design[order(experimental_design[,"Factor"]),]
+    init_params[["annotation"]] = normalizePath(selectFile(caption = "Select genome annotation file",path = init_params[["wd"]]))
+    init_params[["assembly"]] = readline(prompt = "Organism: ")
+    init_params[["context"]] = select.list(choices = c("CpG","CHG","CHH"),multiple = TRUE,title = "Select contexts to analyze",graphics = TRUE,preselect = c("CpG","CHG","CHH"))
     
-    # Sample names
-    for(i in as.numeric(unique(experimental_design[,"Factor"]))){
-      experimental_design[experimental_design[,"Factor"] == i,"Factor_name"] = readline(prompt = paste0("Factor name for ",paste0(experimental_design[experimental_design[,"Factor"]==i,"Sample"],collapse = " | "),": "))
-    }
-    cat("#####   Input annotation files   #####\n")
-    Annotation_names = rchoose.files(caption = "Choose annotation files: ",multi = TRUE)
-    names(Annotation_names) = Annotation_names
-    for(i in Annotation_names){
-      Annotation_names[i] = readline(prompt = paste0("Annotation name for ",i,": "))
-    }
-  
-    regions = NULL
-    if(any(section=="Run dataset on regions (Exons/Introns/Promoters/TSSes)")){regions=rselect.list(choices = c("promoters","exons","introns","TSSes"),multiple = TRUE,title = "Select functional regions to analyze",preselect = c("promoters","exons","introns","TSSes"))}
-    if(any(section=="Run all regions (RAM/CPU intensive)")){regions = c(regions,"all_regions")}
+    init_params[["window_size"]] = as.numeric(readline(prompt = "Window size for differentially methylated regions (default = 100): "))
+    init_params[["alpha"]] = as.numeric(readline(prompt = "pvalue cutoff for methylation difference (default = 0.05): "))
+    init_params[["methylation_diff"]] = as.numeric(readline(prompt = "Methylation difference cutoff percent (default = 25): "))
+    if(is.na(init_params[["window_size"]])){init_params[["window_size"]] = 100}
+    if(is.na(init_params[["alpha"]])){init_params[["alpha"]] = 0.05}
+    if(is.na(init_params[["methylation_diff"]])){init_params[["methylation_diff"]] = 25}
     
-    ###### Import annotation files ######
-    cat("#####   Importing Annotation files   #####\n")
-    Annotation_list = list()
-    for(i in names(Annotation_names)){
-      Annotation_list[[Annotation_names[i]]] = readTranscriptFeatures(location = i)
-    }
-    rm(Annotation_names)
-    save.image(paste0(Experiment_name,"_input.RData"))
   }
 }
 
+start_time=Sys.time()
+
+cat("Working directory: ",getwd(),"\n", sep = "")
+cat("Experiment name: ",init_params[["name"]],"\n", sep = "")
+setwd(init_params[["wd"]])
+
+if("analyze" %in% names(init_params)){
+  init_params_rem = init_params
+  load(init_params[["analyze"]])
+  for(i in names(init_params_rem)){
+    init_params[[i]] = init_params_rem[[i]]
+  }
+  rm(init_params_rem)
+}
+
+##### Register threads #####
+if(.Platform$OS.type == "unix"){
+  register(BPPARAM = MulticoreParam(workers = init_params[["threads"]]))
+}else{
+  init_params[["threads"]] = 1
+  register(BPPARAM = SerialParam())
+}
+
+if(!exists("genome_annotation")){
+  genome_annotation = readTranscriptFeatures(location = init_params[["annotation"]])
+}
+
+for(i in names(init_params[["controls"]])){
+  init_params[["factors"]][[i]] = as.numeric(relevel(factor(experimental_design[[i]]),ref = init_params[["controls"]][i])) - 1
+  names(init_params[["factors"]][[i]]) = relevel(factor(experimental_design[[i]]),ref = init_params[["controls"]][i])
+}
 
 #####   Run files in selected contexts   ######
-  start_time=Sys.time()
 
 #####  Import samples  #####
-if("Import dataset" %in% section){
+if("Read" %in% init_params[["section"]]){
+  dir.create("Basic_stats",showWarnings = FALSE)
+  meth_unite = list()
+  meth_unite_feature = list()
+  
+  for(variable in names(init_params[["factors"]])){
+  dir.create(paste0("MethylDB/",variable),showWarnings = FALSE,recursive = TRUE)
+  processBismarkAln(location = as.list(experimental_design[["File"]]),
+                    sample.id = as.list(experimental_design[["Sample"]]),
+                    assembly = init_params[["assembly"]],
+                    treatment = init_params[["factors"]][[variable]],
+                    save.context = init_params[["context"]],
+                    save.folder = paste0("MethylDB/",variable))
+  for(context in init_params[["context"]]){
+    init_params[["MethylDB"]][[variable]][[context]] = normalizePath(path = paste0("MethylDB/",variable,"/",experimental_design[["Sample"]],"_",context,".txt"))
+  }
+  }
+  
+  for(variable in names(init_params[["factors"]])){
+  for(context in init_params[["context"]]){
   cat("#####   Importing sample files in ",context," context   #####\n", sep = "")
-  if(save_db){
-  tryCatch({processBismarkAln(location = as.list(experimental_design[,"BAM_file"]),sample.id = as.list(experimental_design[,"Sample"]),treatment = as.numeric(experimental_design[,"Factor"]),assembly = assembly,save.context = context,read.context = context,save.folder = paste0("./MethylDB/raw_meth_",context,"/"),save.db = TRUE)},error=function(e){cat("ERROR : ",conditionMessage(e), "\n", sep = "")})
-  for(i in 1:nrow(experimental_design)){
-    experimental_design[[i,"Raw_DB_file"]]=paste0("./MethylDB/raw_meth_",context,"/",experimental_design[[i,"Sample"]],"_",context,".txt")
+  raw_meth = methRead(location = as.list(init_params[["MethylDB"]][[variable]][[context]]),
+                      sample.id = as.list(experimental_design[["Sample"]]),
+                      pipeline = "bismark",
+                      treatment = init_params[["factors"]][[variable]],
+                      assembly = init_params[["assembly"]],
+                      context = context)
+  names(raw_meth) = experimental_design[["Sample"]]
+
+      ######  Basic stats in numbers  ######
+    cat("#####   Calculating basic stats, plots and coverage plots   #####\n")
+      for(i in experimental_design[["Sample"]]) {
+        methylstats[[variable]][[context]][[i]] = capture.output(getMethylationStats(raw_meth[[i]],plot = FALSE,both.strands = FALSE),file = paste0("Basic_stats/Methyl_stats_",i,"_",variable,"_",context,".methylstats"))
+        
+        ###### Basic stats plots ######
+        png(filename = paste0("Basic_stats/Methyl_stats_",i,"_",variable,"_",context,".png"),width = 1920,height = 1080,units = "px")
+        getMethylationStats(raw_meth[[i]],plot = TRUE,both.strands = FALSE)
+        while (!is.null(dev.list())) dev.off()
+        
+        ###### Coverage stats ######
+        png(filename = paste0("Basic_stats/Coverage_stats_",i,"_",variable,"_",context,".png"),width = 1920,height = 1080,units = "px")
+        getCoverageStats(raw_meth[[i]],plot = TRUE,both.strands = FALSE)
+        while (!is.null(dev.list())) dev.off()
+      }
+      
+      ###### Filter and normalize each sample by read coverage ######
+      cat("#####   Filtering data   #####\n")
+      raw_meth_filter = filterByCoverage(methylObj = raw_meth,
+                                         lo.count = 10,
+                                         lo.perc = NULL,
+                                         hi.count = NULL,
+                                         hi.perc = 99.9
+                                         )
+      rm(raw_meth)
+      gc()
+      cat("#####   Normalizing data   #####\n")
+      raw_meth_norm = normalizeCoverage(obj = raw_meth_filter,
+                                        method = "median"
+                                        )
+      
+      rm(raw_meth_filter)
+      gc()
+      ###### Create tiles ######
+      cat("#####   Creating region tiles   #####\n")
+      tiles = tileMethylCounts(raw_meth_norm,
+                               win.size = init_params[["window_size"]],
+                               step.size = init_params[["window_size"]],
+                               mc.cores = init_params[["threads"]]
+                               )
+      
+      ###### Unite samples ######
+      for(scope in c("SMP","DMR")){
+      cat("#####   Uniting samples   #####\n")
+        meth_unite[[scope]][[variable]][[context]] = unite(object = if(scope == "SMP"){raw_meth_norm}else{tiles},destrand = context == "CpG",save.db = FALSE,mc.cores = init_params[["threads"]])
+      
+      #### Filter low SD ####
+        cat("#####   Filtering low SD sites    #####\n")
+        meth_unite[[scope]][[variable]][[context]] = meth_unite[[scope]][[variable]][[context]][rowSds(percMethylation(meth_unite[[scope]][[variable]][[context]]),na.rm = TRUE) > 2]
+        
+      ###### Data lists ######
+
+        ###### Extract regions ######
+        for(feature in c("promoters","exons","introns","TSSes")){
+          cat("#####   Extracting regions for ",feature,"   #####\n", sep = "")
+          meth_unite_feature[[scope]][[variable]][[context]][[feature]] = regionCounts(meth_unite[[scope]][[variable]][[context]],
+                                                            regions = genome_annotation[[feature]],
+                                                            mc.cores = init_params[["threads"]])
+        }
+      }
+      rm(raw_meth_norm,tiles)
+      gc()
+      
   }
-  write.table(x = data.frame(experimental_design[,c("Sample","Factor")],Factor_name = basename(experimental_design[,"Factor_name"])),file = "./Experimental_design.txt",quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
-  raw_meth = methRead(location = as.list(experimental_design[,"Raw_DB_file"]),sample.id = as.list(experimental_design[,"Sample"]),treatment = as.numeric(experimental_design[,"Factor"]),assembly = assembly,dbtype = "tabix",dbdir = paste0("./MethylDB/raw_meth_",context,"/"),context = context,pipeline = "bismark")
-  gc()
-  }else{
-  raw_meth = processBismarkAln(location = as.list(experimental_design[,"BAM_file"]),sample.id = as.list(experimental_design[,"Sample"]),treatment = as.numeric(experimental_design[,"Factor"]),assembly = assembly,read.context = context)
-  names(raw_meth) = experimental_design[,"Sample"]
-  for(i in 1:nrow(experimental_design)){
-    experimental_design[[i,"Raw_DB_file"]] = paste0("./MethylDB/raw_meth_",context,"/",experimental_design[[i,"Sample"]],"_",context,".txt")
+  }
+  save.image(paste0(init_params[["name"]],"_imported_data.RData"))
   }
   
-  save.image(paste0(Experiment_name,"_",context,"_imported_data.RData"))
-  }
-}
-  
-  if("Run dataset on regions (Exons/Introns/Promoters/TSSes)" %in% section | "Run all regions (RAM/CPU intensive" %in% section){
-  ######  Basic stats in numbers  ######
-  cat("#####   Calculating basic stats, plots and coverage plots   #####\n")
-  dir.create("Methyl_stats",showWarnings = FALSE)
-  dir.create("Methyl_stats_plots",showWarnings = FALSE)
-  dir.create("Coverage_stats_plots",showWarnings = FALSE)
-  for(i in experimental_design[,"Sample"]) {
-    sink(paste0("./Methyl_stats/",context,"_getMethylStats.txt"),append = TRUE)
-    print(i)
-    getMethylationStats(raw_meth[[i]],plot = FALSE,both.strands = FALSE)
-    sink()
+  if("Analyze" %in% init_params[["section"]]){
+  cat("#####   Including following contexts in analysis: ",paste0(init_params[["context"]],collapse = ", "),"   #####\n", sep = "")
+
+    perc_meth = list()
+    meth_poly = list()
+    meth_diff = list()
+    meth_genes = list()
+    meth_distTSS = list()
     
-    ###### Basic stats plots ######
-    png(filename = paste0("./Methyl_stats_plots/",context,"_Methyl_stats_",i,".png"),width = 1920,height = 1080,units = "px")
-    getMethylationStats(raw_meth[[i]],plot = TRUE,both.strands = FALSE)
-    while (!is.null(dev.list())){dev.off()}
+    dir.create("Raw_data",showWarnings = FALSE)
+    dir.create("Correlation",showWarnings = FALSE)
+    dir.create("Cluster",showWarnings = FALSE)
+    dir.create("PCA",showWarnings = FALSE)
+    dir.create("Diff_meth",showWarnings = FALSE)
+    dir.create("Annotation",showWarnings = FALSE)
+    dir.create("Volcano",showWarnings = FALSE)
     
-    ###### Coverage stats ######
-    png(filename = paste0("./Coverage_stats_plots/",context,"_Coverage_stats_",i,".png"),width = 1920,height = 1080,units = "px")
-    getCoverageStats(raw_meth[[i]],plot = TRUE,both.strands = FALSE)
-    while (!is.null(dev.list())){dev.off()}
-  }
-  
-  ###### Filter and normalize each sample by read coverage ######
-  cat("#####   Filtering data   #####\n")
-  raw_meth_filter = filterByCoverage(methylObj = raw_meth,lo.count = 10,lo.perc = NULL,hi.count = NULL,hi.perc = 99.9,save.db = save_db,suffix = paste0(context,"_filtered"),dbdir = paste0("./MethylDB/raw_meth_",context,"/"))
-  cat("#####   Normalizing data   #####\n")
-  raw_meth_norm = normalizeCoverage(obj = raw_meth_filter, method = "median",save.db = save_db,suffix = paste0(context,"_norm"),dbdir = paste0("./MethylDB/raw_meth_",context,"/"))
-  
-  ###### Create tiles ######
-  cat("#####   Creating region tiles   #####\n")
-  tiles = tileMethylCounts(raw_meth_norm,win.size = window_size,step.size = window_size,mc.cores = threads,save.db = save_db,dbdir = paste0("./MethylDB/raw_meth_",context,"/"),suffix = paste0(context,"_tiles"))
-  
-  ###### Unite samples ######
-  cat("#####   Uniting samples   #####\n")
-  if("Run dataset on regions (Exons/Introns/Promoters/TSSes)" %in% section){
-    if(context=="CpG"){
-      raw_meth_unite = unite(object = raw_meth_norm,destrand = TRUE,save.db = FALSE,mc.cores = threads)
-      tiles_unite = unite(object = tiles,destrand = TRUE,save.db = FALSE,mc.cores = threads)
-    } else {
-      raw_meth_unite = unite(object = raw_meth_norm,destrand = FALSE,save.db = FALSE,mc.cores = threads)
-      tiles_unite = unite(object = tiles,destrand = FALSE,save.db = FALSE,mc.cores = threads)
-    }
-  }
-  
-  ###### Data lists ######
-  raw_meth_unite_region = list()
-  tiles_unite_region = list()
-  perc_meth = list()
-  perc_meth_list = list(perc_meth_raw_mean = data.frame(),
-                        perc_meth_raw_sd = data.frame(),
-                        perc_meth_tiles_mean = data.frame(),
-                        perc_meth_tiles_sd = data.frame(),
-                        Annotation = rep(names(Annotation_list),each = length(regions)),
-                        regions = rep(regions,length(Annotation_list)))
-  perc_PCA = list()
-  PCA_raw = list()
-  PCA_tiles = list()
-  subset_list = list()
-  SMP = list()
-  DMR = list()
-  SMP_diff = list()
-  DMR_diff = list()
-  SMP_genes = list()
-  DMR_genes = list()
-  
   ###### Annotation and Regions loop ######
-  for(Annotation_idx in names(Annotation_list)){
-  for(regions_idx in regions){
-  cat("######  Running analysis for ",regions_idx," in ",Annotation_idx,"  ######\n", sep = "")
-  
-    ###### Extract regions ######
-    cat("#####   Extracting regions for ",regions_idx," in ",Annotation_idx,"   #####\n", sep = "")
-    if(regions_idx != "all_regions"){
-      raw_meth_unite_region[[Annotation_idx]][[regions_idx]] = regionCounts(raw_meth_unite,Annotation_list[[Annotation_idx]][[regions_idx]],save.db = save_db,suffix = paste0(context,"_",Annotation_idx,"_",regions_idx),dbdir = "MethylDB/Unite/",mc.cores = threads)
-      tiles_unite_region[[Annotation_idx]][[regions_idx]] = regionCounts(tiles_unite,Annotation_list[[Annotation_idx]][[regions_idx]],save.db = save_db,suffix = paste0(context,"_",Annotation_idx,"_",regions_idx,"_tiles"),dbdir = "MethylDB/Unite/",mc.cores = threads)
-    }else{
-      raw_meth_unite_region[[Annotation_idx]][[regions_idx]] = regionCounts(raw_meth_unite,Annotation_list[[Annotation_idx]]@unlistData,save.db = save_db,suffix = paste0(context,"_",Annotation_idx,"_",regions_idx),dbdir = "MethylDB/Unite/",mc.cores = threads)
-      tiles_unite_region[[Annotation_idx]][[regions_idx]] = regionCounts(tiles_unite,Annotation_list[[Annotation_idx]]@unlistData,save.db = save_db,suffix = paste0(context,"_",Annotation_idx,"_",regions_idx,"_tiles"),dbdir = "MethylDB/Unite/",mc.cores = threads)
-    }
+  for(variable in names(init_params[["factors"]])){
+  for(context in init_params[["context"]]){
+  for(scope in c("SMP","DMR")){
+  cat("######  Running analysis for ",variable," in ",context," context for ",scope,"s ######\n", sep = "")
     
-    dir.create("Sequence_regions",showWarnings = FALSE)
-    if(length(raw_meth_unite_region[[Annotation_idx]][[regions_idx]]@row.names) > 0){
-      temp = data.frame(raw_meth_unite_region[[Annotation_idx]][[regions_idx]]@.Data)
-      names(temp) = raw_meth_unite_region[[Annotation_idx]][[regions_idx]]@names
-      write.table(x = temp,file = paste0("./Sequence_regions/Single_",Annotation_idx,"_",regions_idx,"_",context,".txt"),quote = FALSE,sep = "\t",row.names = FALSE)
-      rm(temp)
-      temp = percMethylation(raw_meth_unite_region[[Annotation_idx]][[regions_idx]])
-      perc_meth[["raw"]][["mean"]][[Annotation_idx]][[regions_idx]] = colMeans(percMethylation(methylBase.obj = raw_meth_unite_region[[Annotation_idx]][[regions_idx]]))
-      perc_meth[["raw"]][["sd"]][[Annotation_idx]][[regions_idx]] = apply(X = percMethylation(methylBase.obj = raw_meth_unite_region[[Annotation_idx]][[regions_idx]]),MARGIN = 2,FUN = sd)
-    }
-    if(length(tiles_unite_region[[Annotation_idx]][[regions_idx]]@row.names) > 0){  
-      temp = data.frame(tiles_unite_region[[Annotation_idx]][[regions_idx]]@.Data)
-      names(temp) = tiles_unite_region[[Annotation_idx]][[regions_idx]]@names
-      write.table(x = temp,file = paste0("./Sequence_regions/Tiles_",Annotation_idx,"_",regions_idx,"_",context,".txt"),quote = FALSE,sep = "\t",row.names = FALSE)
-      rm(temp)
-      perc_meth[["tiles"]][["mean"]][[Annotation_idx]][[regions_idx]] = colMeans(percMethylation(methylBase.obj = tiles_unite_region[[Annotation_idx]][[regions_idx]]))
-      perc_meth[["tiles"]][["sd"]][[Annotation_idx]][[regions_idx]] = apply(X = percMethylation(methylBase.obj = tiles_unite_region[[Annotation_idx]][[regions_idx]]),MARGIN = 2,FUN = sd)
+    if(nrow(meth_unite[[scope]][[variable]][[context]]) > 0){
+      write.table(x = getData(meth_unite[[scope]][[variable]][[context]]),
+                  file = paste0("Raw_data/",scope,"_",variable,"_",context,".txt"),
+                  quote = FALSE,
+                  sep = "\t",
+                  row.names = FALSE,
+                  col.names = TRUE)
+      perc_meth[[scope]][[variable]][[context]] = list(mean = colMeans(percMethylation(methylBase.obj = meth_unite[[scope]][[variable]][[context]])),
+                                                       sd = colSds(percMethylation(methylBase.obj = meth_unite[[scope]][[variable]][[context]])))
     }
   
-  numCs = NULL
-    for(i in grep(pattern = "numCs",raw_meth_unite_region[[Annotation_idx]][[regions_idx]]@names)){
-    numCs = c(numCs,sum(raw_meth_unite_region[[Annotation_idx]][[regions_idx]][[i]]))
-  }
-  if(!any(numCs == 0)){
+  if(!any(colSums(getData(meth_unite[[scope]][[variable]][[context]])[,grep(pattern = "numCs",meth_unite[[scope]][[variable]][[context]]@names)]) == 0)){
     
   ###### Correlation ######
   cat("#####   Creating correlation stats and plots   #####\n")
-  dir.create("Correlation",showWarnings = FALSE)
-  sink(paste0("./Correlation/",context,"_getCorrelation_",Annotation_idx,"_",regions_idx,".txt"))
-  getCorrelation(raw_meth_unite_region[[Annotation_idx]][[regions_idx]],plot = FALSE)
-  sink()
-  png(paste0("./Correlation/",context,"_Correlation_",Annotation_idx,"_",regions_idx,".png"),width = 1920,height = 1080,units = "px")
-  getCorrelation(raw_meth_unite_region[[Annotation_idx]][[regions_idx]],plot = TRUE)
-  while (!is.null(dev.list())){dev.off()}
   
-  sink(paste0("./Correlation/tiles_",context,"_getCorrelation_",Annotation_idx,"_",regions_idx,".txt"))
-  getCorrelation(tiles_unite_region[[Annotation_idx]][[regions_idx]],plot = FALSE)
-  sink()
-  png(filename = paste0("./Correlation/tiles_",context,"_Correlation_",Annotation_idx,"_",regions_idx,".png"),width = 1920,height = 1080,units = "px")
-  getCorrelation(tiles_unite_region[[Annotation_idx]][[regions_idx]],plot = TRUE)
-  while (!is.null(dev.list())){dev.off()}
-  
+  png(paste0("Correlation/Correlation_",scope,"_",variable,"_",context,".png"),width = 1920,height = 1080,units = "px")
+  capture.output(getCorrelation(meth_unite[[scope]][[variable]][[context]],plot = TRUE),file = paste0("Correlation/Correlation_",scope,"_",variable,"_",context,".txt"))
+  while (!is.null(dev.list())) dev.off()
   
   ###### Cluster the samples ######
   cat("#####   Creating cluster plots   #####\n")
-  dir.create("Cluster_Samples",showWarnings = FALSE)
-  png(filename = paste0("./Cluster_Samples/",context,"_Cluster_",Annotation_idx,"_",regions_idx,".png"),width = 1080,height = 1080,units = "px")
-  clusterSamples(raw_meth_unite_region[[Annotation_idx]][[regions_idx]],dist = "correlation",method = "ward",plot = TRUE)
-  while (!is.null(dev.list())){dev.off()}
-  
-  png(filename = paste0("./Cluster_Samples/tiles_",context,"_Cluster_",Annotation_idx,"_",regions_idx,".png"),width = 1080,height = 1080,units = "px")
-  clusterSamples(tiles_unite_region[[Annotation_idx]][[regions_idx]],dist = "correlation",method = "ward",plot = TRUE)
-  while (!is.null(dev.list())){dev.off()}
+  png(filename = paste0("Cluster/Cluster_",scope,"_",variable,"_",context,".png"),width = 1080,height = 1080,units = "px")
+  invisible(clusterSamples(meth_unite[[scope]][[variable]][[context]],dist = "correlation",method = "ward.D2",plot = TRUE))
+  while (!is.null(dev.list())) dev.off()
   
   ###### PCA variances and plots ######
   cat("#####   Creating PCA variances and plots   #####\n")
-  dir.create("PCA",showWarnings = FALSE)
-  png(filename = paste0("./PCA/",context,"_PCA_Variances_",Annotation_idx,"_",regions_idx,".png"),width = 1920,height = 1080,units = "px")
-  PCASamples(raw_meth_unite_region[[Annotation_idx]][[regions_idx]], screeplot=TRUE)
-  while (!is.null(dev.list())){dev.off()}
-  PCA_raw[[Annotation_idx]][[regions_idx]] = PCASamples(raw_meth_unite_region[[Annotation_idx]][[regions_idx]],obj.return = TRUE)
-  png(filename = paste0("./PCA/",context,"_PCA_plot_",Annotation_idx,"_",regions_idx,".png"),width = 1920,height = 1080,units = "px")
-  print(fviz_pca_ind(X = PCA_raw[[Annotation_idx]][[regions_idx]],repel = TRUE,habillage = experimental_design[,"Factor_name"],title = paste0("PCA for ",context," ",Annotation_idx," ",regions_idx),labelsize = 8, pointsize = 3)+theme(title = element_text(size = 20),axis.title = element_text(size = 20),axis.text = element_text(size = 20),legend.text = element_text(size = 20)))
-  while (!is.null(dev.list())){dev.off()}
+  png(filename = paste0("PCA/ScreePlot_",scope,"_",variable,"_",context,".png"),width = 1920,height = 1080,units = "px")
+  PCASamples(meth_unite[[scope]][[variable]][[context]], screeplot=TRUE)
+  while (!is.null(dev.list())) dev.off()
   
-  png(filename = paste0("./PCA/tiles_",context,"_PCA_Variances_",Annotation_idx,"_",regions_idx,".png"),width = 1920,height = 1080,units = "px")
-  PCASamples(tiles_unite_region[[Annotation_idx]][[regions_idx]], screeplot=TRUE)
-  while (!is.null(dev.list())){dev.off()}
-  PCA_tiles[[Annotation_idx]][[regions_idx]] = PCASamples(tiles_unite_region[[Annotation_idx]][[regions_idx]],obj.return = TRUE)
-  png(filename = paste0("./PCA/tiles_",context,"_PCA_plot_",Annotation_idx,"_",regions_idx,".png"),width = 1920,height = 1080,units = "px")
-  print(fviz_pca_ind(X = PCA_tiles[[Annotation_idx]][[regions_idx]],repel = TRUE,habillage = experimental_design[,"Factor_name"],title = paste0("PCA for tiles ",context," ",Annotation_idx," ",regions_idx),labelsize = 8, pointsize = 3)+theme(title = element_text(size = 20),axis.title = element_text(size = 20),axis.text = element_text(size = 20),legend.text = element_text(size = 20)))
+  png(filename = paste0("PCA/PCA_",scope,"_",variable,"_",context,".png"),width = 1920,height = 1080,units = "px")
+  print(fviz_pca_ind(X = PCASamples(meth_unite[[scope]][[variable]][[context]],obj.return = TRUE),repel = TRUE,habillage = experimental_design[[variable]],title = paste0("PCA"),labelsize = 8, pointsize = 3,legend.title = variable) +
+          theme(title = element_text(size = 20),axis.title = element_text(size = 20),axis.text = element_text(size = 20),legend.text = element_text(size = 20),legend.title = element_text(size = 22)))
   while (!is.null(dev.list())){dev.off()}
   
+  for(variable_idx in sort(unique(init_params[["factors"]][[variable]]))[-1]){
+    comp_var = c(unique(names(init_params[["factors"]][[variable]])[init_params[["factors"]][[variable]] == 0]),
+                 unique(names(init_params[["factors"]][[variable]])[init_params[["factors"]][[variable]] == variable_idx]))
   
-  ###### Annotation lists ######
-  Annotation_df = list()
-  if(regions_idx != "all_regions"){
-    cat("#####   Creating Annotation list for ",regions_idx," in ",Annotation_idx,"   #####\n", sep = "")
-    if(regions_idx == "promoters"){
-    Annotation_lengths = c(0,cumsum(Annotation_list[[Annotation_idx]]$TSSes@seqnames@lengths))
-    Chr.start.tss = lapply(X = seq_along(Annotation_list[[Annotation_idx]]$TSSes@seqnames@lengths),FUN = function(x){
-      data.frame(Start = Annotation_list[[Annotation_idx]]$TSSes@ranges@start[(Annotation_lengths[x]+1):(Annotation_lengths[x+1])], Gene = Annotation_list[[Annotation_idx]]$TSSes$name[(Annotation_lengths[x]+1):(Annotation_lengths[x+1])])
-    })
-    names(Chr.start.tss) = as.character(Annotation_list[[Annotation_idx]]$TSSes@seqnames@values)
-    
-    Annotation_lengths = c(0,cumsum(Annotation_list[[Annotation_idx]]$promoters@seqnames@lengths))
-    Chr.start.promoters = lapply(X = seq_along(Annotation_list[[Annotation_idx]]$promoters@seqnames@lengths),FUN = function(x){
-      data.frame(Start = unique(Annotation_list[[Annotation_idx]]$promoters@ranges@start[(Annotation_lengths[x]+1):(Annotation_lengths[x+1])]))
-    })
-    names(Chr.start.promoters) = as.character(Annotation_list[[Annotation_idx]]$promoters@seqnames@values)
-    
-    for(i in names(Chr.start.promoters)){
-      cat("\rGetting genes for promoters in chromosome ",i, sep = "")
-      Annotation_df[[Annotation_idx]][[regions_idx]][[i]] = bplapply(X = Chr.start.promoters[[i]]$Start,FUN = function(j,x = i){
-        genes_temp = Chr.start.tss[[x]]$Gene[Chr.start.tss[[x]]$Start == j+1000]
-        df_temp = data.frame(Start = rep(j,length(genes_temp)), Gene = genes_temp)
-        return(df_temp)
-      })
-      Annotation_df_temp = unlist(Annotation_df[[Annotation_idx]][[regions_idx]][[i]])
-      Annotation_df[[Annotation_idx]][[regions_idx]][[i]] = data.frame(Start = as.numeric(Annotation_df_temp[grepl(pattern = "Start",x = names(Annotation_df_temp))]), Gene = Annotation_df_temp[grepl(pattern = "Gene",x = names(Annotation_df_temp))])
-      cat("\n")
-    }
-    rm(Annotation_df_temp,Annotation_lengths,Chr.start.promoters,Chr.start.tss)
-  }else{
-    Annotation_lengths = c(0,Annotation_list[[Annotation_idx]][[regions_idx]]@seqnames@lengths)
-    Annotation_df[[Annotation_idx]][[regions_idx]] = bplapply(X = seq_along(Annotation_list[[Annotation_idx]][[regions_idx]]@seqnames@lengths),FUN = function(x){
-      data.frame(Start = as.integer(Annotation_list[[Annotation_idx]][[regions_idx]]@ranges@start[(Annotation_lengths[x]+1):(Annotation_lengths[x+1])]), Gene = Annotation_list[[Annotation_idx]][[regions_idx]]$name[(Annotation_lengths[x]+1):(Annotation_lengths[x+1])])
-    })
-    names(Annotation_df[[Annotation_idx]][[regions_idx]]) = as.character(Annotation_list[[Annotation_idx]][[regions_idx]]@seqnames@values)
-  }
-  }
-  
-  
-  for(factor_name_idx in unique(experimental_design$Factor_name)[-1]){
   ###### Calculate Single methylation polymorphisms (SMPs) ######
-    cat("#####   Subsetting into samples ",unique(experimental_design$Factor_name)[1]," and ",factor_name_idx,"   #####\n", sep = "")
-    subset_SMP = reorganize(methylObj = raw_meth_unite_region[[Annotation_idx]][[regions_idx]],sample.ids = c(experimental_design$Sample[experimental_design$Factor == 0],experimental_design$Sample[experimental_design$Factor_name == factor_name_idx]),treatment = as.numeric(c(experimental_design$Factor[experimental_design$Factor==0],experimental_design$Factor[experimental_design$Factor_name == factor_name_idx])))
-    subset_DMR = reorganize(methylObj = tiles_unite_region[[Annotation_idx]][[regions_idx]],sample.ids = c(experimental_design$Sample[experimental_design$Factor == 0],experimental_design$Sample[experimental_design$Factor_name == factor_name_idx]),treatment = as.numeric(c(experimental_design$Factor[experimental_design$Factor==0],experimental_design$Factor[experimental_design$Factor_name == factor_name_idx])))
+    cat("#####   Subsetting into samples ",comp_var[1]," and ",comp_var[2]," for ",scope,"s  #####\n", sep = "")
+    subset_poly = reorganize(methylObj = meth_unite[[scope]][[variable]][[context]],
+                            sample.ids = experimental_design[["Sample"]][init_params[["factors"]][[variable]] %in% c(0,variable_idx)],
+                            treatment = init_params[["factors"]][[variable]][init_params[["factors"]][[variable]] %in% c(0,variable_idx)])
+    
+    save.image("tmp6.RData")
+    stop("OK stop")
 
-    cat("#####   Calculating single methylation polymorphisms (SMPs)   #####\n")
-    tryCatch({SMP[[factor_name_idx]][[Annotation_idx]][[regions_idx]] = calculateDiffMeth(subset_SMP,mc.cores = threads,save.db = FALSE)},
-             error = function(e){cat("ERROR :",conditionMessage(e), "\n")})
-    if(exists("subset_SMP")){rm(subset_SMP)}
+    meth_poly[[scope]][[variable]][[context]][[comp_var[2]]] = calculateDiffMeth(subset_poly,overdispersion = "MN",mc.cores = init_params[["threads"]],save.db = FALSE)
+
+    volcano_data = getData(meth_poly[[scope]][[variable]][[context]][[comp_var[2]]])[,c("meth.diff","qvalue")]
+    volcano_data[["Expression"]] = apply(volcano_data,MARGIN = 1,function(x){
+      if(abs(as.numeric(x[1])) >= init_params[["methylation_diff"]] & as.numeric(x[2]) < init_params[["alpha"]]){
+        if(as.numeric(x[1]) > 0){
+          "Hyper-methylated"
+        }else{
+          "Hypo-methylated"
+        }
+      }else{
+        "Unchanged"
+      }
+    })
+
+    volcano_plot = ggplot(volcano_data, aes(meth.diff, -log(qvalue,10))) +
+      geom_point(aes(color = Expression,alpha = Expression), size = 3) +
+      xlab(expression("Methylation difference")) +
+      ylab(expression(paste("-log"[10]*"(",italic("p"),"-value)"))) +
+      scale_color_manual(values = c("Hyper-methylated" = "dodgerblue3", "Unchanged" = "gray50", "Hypo-methylated" = "firebrick3")) +
+      scale_alpha_manual(values = c("Hyper-methylated" = 1,"Unchanged" = 0.25,"Hypo-methylated" = 1)) +
+      guides(colour = guide_legend(override.aes = list(size = 3))) +
+      geom_hline(yintercept = -log(init_params[["alpha"]],10), linetype="dashed") +
+      geom_vline(xintercept = c(-init_params[["methylation_diff"]],init_params[["methylation_diff"]]), linetype="dashed") +
+      theme(text = element_text(size = 30))
     
-    ###### Calculate differentially methylated regions (DMRs) ######
-    cat("#####   Calculating differentially methylated regions (DMRs)   #####\n")
-    tryCatch({DMR[[factor_name_idx]][[Annotation_idx]][[regions_idx]] = calculateDiffMeth(subset_DMR,mc.cores = threads,save.db = FALSE)},
-            error = function(e){cat("ERROR :",conditionMessage(e), "\n")})
-    if(exists("subset_DMR")){rm(subset_DMR)}
- 
-    SMP_names = c(names(SMP[[factor_name_idx]][[Annotation_idx]]),names(SMP[[factor_name_idx]]),names(SMP))
-    DMR_names = c(names(DMR[[factor_name_idx]][[Annotation_idx]]),names(DMR[[factor_name_idx]]),names(DMR))
+    png(filename = paste0("Volcano/Volcano_",scope,"_",variable,"_",context,"_",comp_var[2],".png"),width = 1920,height = 1080,units = "px")
+    print(volcano_plot)
+    while (!is.null(dev.list())) dev.off()
     
-    if(all(c(factor_name_idx,Annotation_idx,regions_idx) %in% SMP_names) & all(c(factor_name_idx,Annotation_idx,regions_idx) %in% DMR_names)){
+    rm(volcano_data,volcano_plot)
+    
   ###### Get differential methylation stats ######
   cat("#####   Creating stats and plots for SMPs and DMRs for chromosomes   #####\n")
-  dir.create("Differential_methylation",showWarnings = FALSE)
-  if(sum((SMP[[factor_name_idx]][[Annotation_idx]][[regions_idx]][["qvalue"]] <= alpha)*(abs(SMP[[factor_name_idx]][[Annotation_idx]][[regions_idx]][["meth.diff"]]) >= methylation_diff)) > 0){
-    tryCatch({
-      sink(paste0("./Differential_methylation/Diff_meth_per_chr_SMP_",context,"_",regions_idx,"_",Annotation_idx,"_factor_",factor_name_idx,".txt"))
-      print(diffMethPerChr(SMP[[factor_name_idx]][[Annotation_idx]][[regions_idx]],plot=FALSE,qvalue.cutoff=alpha, meth.cutoff=methylation_diff))
-      sink()},
-      error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
-    png(filename = paste0("./Differential_methylation/Diff_meth_per_chr_SMP_",context,"_",regions_idx,"_",Annotation_idx,"_factor_",factor_name_idx,".png"),width = 1920,height = 1080,units = "px")
-    tryCatch({
-        diffMethPerChr(SMP[[factor_name_idx]][[Annotation_idx]][[regions_idx]],plot=TRUE,qvalue.cutoff=alpha, meth.cutoff=methylation_diff)},
-             error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
-    while (!is.null(dev.list())){dev.off()}
-  }
-  if(sum((DMR[[factor_name_idx]][[Annotation_idx]][[regions_idx]][["qvalue"]] <= alpha)*(abs(DMR[[factor_name_idx]][[Annotation_idx]][[regions_idx]][["meth.diff"]]) >= methylation_diff)) > 0){
-    tryCatch({
-      sink(paste0("./Differential_methylation/Diff_meth_per_chr_DMR_",context,"_",regions_idx,"_",Annotation_idx,"_factor_",factor_name_idx,".txt"))
-      print(diffMethPerChr(DMR[[factor_name_idx]][[Annotation_idx]][[regions_idx]],plot=FALSE,qvalue.cutoff=alpha, meth.cutoff=methylation_diff))
-      sink()},
-      error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
-  png(filename = paste0("./Differential_methylation/Diff_meth_per_chr_DMR_",context,"_",regions_idx,"_",Annotation_idx,"_factor_",factor_name_idx,".png"),width = 1920,height = 1080,units = "px")
-  tryCatch({
-    diffMethPerChr(DMR[[factor_name_idx]][[Annotation_idx]][[regions_idx]],plot=TRUE,qvalue.cutoff=alpha, meth.cutoff=methylation_diff)},
-    error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
-  while (!is.null(dev.list())){dev.off()}
-  }
   
+  if(sum(meth_poly[[scope]][[variable]][[context]][[comp_var[2]]][["qvalue"]] <= init_params[["alpha"]] & abs(meth_poly[[scope]][[variable]][[context]][[comp_var[2]]][["meth.diff"]]) >= init_params[["methylation_diff"]]) > 0){
+    write.table(diffMethPerChr(meth_poly[[scope]][[variable]][[context]][[comp_var[2]]],
+                               plot = FALSE,
+                               qvalue.cutoff = init_params[["alpha"]],
+                               meth.cutoff = init_params[["methylation_diff"]])[["diffMeth.per.chr"]],
+                file = paste0("Diff_meth/Diff_meth_per_chr_",scope,"_",variable,"_",context,"_",comp_var[2],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = TRUE)
+      
+    png(filename = paste0("Diff_meth/Diff_meth_per_chr_",scope,"_",variable,"_",context,"_",comp_var[2],".png"),width = 1920,height = 1080,units = "px")
+    diffMethPerChr(meth_poly[[scope]][[variable]][[context]][[comp_var[2]]],
+                   plot = TRUE,
+                   qvalue.cutoff = init_params[["alpha"]],
+                   meth.cutoff = init_params[["methylation_diff"]])
+    while (!is.null(dev.list())) dev.off()
+  }
+      
   ###### Get hypermethylated SMPs/DMRs ######
-  cat("#####   Calculating hyper/hypo-methylated SMPs and DMRs   #####\n")
   for(hh_select in c("hyper","hypo")){
-    SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = getMethylDiff(SMP[[factor_name_idx]][[Annotation_idx]][[regions_idx]],difference = methylation_diff,qvalue = alpha,type = hh_select,save.db = FALSE)
-    DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = getMethylDiff(DMR[[factor_name_idx]][[Annotation_idx]][[regions_idx]],difference = methylation_diff,qvalue = alpha,type = hh_select,save.db = FALSE)
- 
+    cat("#####   Calculating ",hh_select,"-methylated ",scope,"s #####\n",sep = "")
+    meth_diff[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = getMethylDiff(meth_poly[[scope]][[variable]][[context]][[comp_var[2]]],
+                                                                                          difference = init_params[["methylation_diff"]],
+                                                                                          qvalue = init_params[["alpha"]],
+                                                                                          type = hh_select,
+                                                                                          save.db = FALSE)
+    
   ###### Output Annotations for SMPs/DMRs ######
-  dir.create("Annotation",showWarnings = FALSE)
-    cat("#####   Getting annotations from hyper/hypo-methylated SMPs and DMRs   #####\n")
-    if(regions_idx != "all_regions"){
-    if(!all(isEmpty(SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]]))){
-      SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = lapply(X = unique(as.character(SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["chr"]])),FUN = function(x){
-        Annotation_df[[Annotation_idx]][[regions_idx]][[x]]$Gene[Annotation_df[[Annotation_idx]][[regions_idx]][[x]]$Start %in% SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["start"]]]
+    cat("#####   Getting annotations from ",hh_select,"-methylated ",scope,"s   #####\n",sep = "")
+    if(!isEmpty(meth_diff[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]])){
+      # meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = lapply(init_params[["features"]],function(feature){
+      #   res = lapply(X = unique(as.character(meth_diff[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][["chr"]])),FUN = function(x){
+      #   temp = chr_features[[x]][[feature]]
+      #   temp2 = temp[temp[["start"]] %in% meth_diff[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][["start"]],"name"]
+      #   return(temp2)
+      # })
+      #   names(res) = unique(as.character(meth_diff[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][["chr"]]))
+      #   return(res)
+      #   })
+      # names(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) = init_params[["features"]]
+      # meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][!isEmpty(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]])]
+      annot = annotateWithGeneParts(as(meth_diff[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]],"GRanges"),
+                                    feature = genome_annotation)
+      annot_TSS = getAssociationWithTSS(annot)
+      meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = apply(getMembers(annot),MARGIN = 2,function(x){
+        unique(annot@dist.to.TSS$feature.name[as.logical(x)])
       })
-      names(SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]]) = unique(as.character(SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["chr"]]))
-      SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][!isEmpty(SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]])]
-      write.table(x = unique(unlist(SMP_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]],use.names = FALSE)),file = paste0("./Annotation/SMP_",context,"_",factor_name_idx,"_",Annotation_idx,"_",regions_idx,"_",hh_select,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
+      names(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) = c("promoters","exons","introns")
+      
+      meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = sapply(colnames(getMembers(annot)),function(x){
+        tmp = annot_TSS[as.logical(getMembers(annot)[,x]),,drop = FALSE]
+        genes = unique(tmp[,"feature.name"])
+        mean_dist = sapply(genes,function(gene){
+          cat(x," | ",format(round(100*which(genes %in% gene)/length(genes),digits = 2),nsmall = 2),"%\r",sep = "")
+          mean(annot_TSS[annot_TSS[["feature.name"]] %in% gene,"dist.to.feature"])
+        })
+        cat("\n")
+        return(mean_dist)
+      })
+      names(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) = c("promoters","exons","introns")
+      
+      sapply(names(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]),
+             function(feature){
+               write.table(x = meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][[feature]],
+                           file = paste0("Annotation/",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,"_",feature,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
+             })
+      png(filename = paste0("Annotation/DistTSS_",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,".png"),width = 1080,height = 1080,units = "px")
+      boxplot(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]],xlab = "Feature",ylab = "Distance to TSS")
+      while (!is.null(dev.list())) dev.off()
+      
+      png(filename = paste0("Annotation/Piechart_",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,".png"),width = 1080,height = 1080,units = "px")
+      par(cex = 2.5)
+      plotTargetAnnotation(annot)
+      while (!is.null(dev.list())) dev.off()
     }
+    }
+  }
+  }
+  }
+  }
+  }
     
-    if(!all(isEmpty(DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]]))){
-      DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = lapply(X = unique(as.character(DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["chr"]])),FUN = function(x){
-        Annotation_df[[Annotation_idx]][[regions_idx]][[x]]$Gene[Annotation_df[[Annotation_idx]][[regions_idx]][[x]]$Start %in% DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["start"]]]
-      })
-      names(DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]]) = unique(as.character(DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][["chr"]]))
-      DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]] = DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]][!isEmpty(DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]])]
-      write.table(x = unique(unlist(DMR_genes[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]],use.names = FALSE)),file = paste0("./Annotation/DMR_",context,"_",factor_name_idx,"_",Annotation_idx,"_",regions_idx,"_",hh_select,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
-    }
-    }else{
-    ##### Annotation #####
-    cat("#####   Annotating differentially methylated regions   #####\n")
-    if(!all(isEmpty(SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]]))){
-      diffAnn_SMP = annotateWithGeneParts(as(SMP_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]],"GRanges"),Annotation_list[[Annotation_idx]])
+  # dir.create("percent_methylation",showWarnings = FALSE)
+  # for(i in c("raw","tiles")){
+  #   for(f in c("mean","sd")){
+  #     for(Annotation_idx in names(perc_meth[[i]][[f]])){
+  #       write.table(x = data.frame(perc_meth[[i]][[f]]),file = paste0("./percent_methylation/perc_meth_",context,"_",i,"_",f,"_",Annotation_idx,".txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
+  #     }
+  #     perc_PCA[[paste0(i,"_",f)]] = prcomp(perc_meth_list[[paste0("perc_meth_",i,"_",f)]])
+  #     perc_PCA[[paste0("var_",i,"_",f)]] = perc_PCA[[paste0(i,"_",f)]]$sdev^2/sum(perc_PCA[[paste0(i,"_",f)]]$sdev^2)
+  #     png(filename = paste0("./percent_methylation/PCA_",context,"_",i,"_",f,".png"),width = 1440,height = 810,units = "px")
+  #     print(ggplot(as.data.frame(perc_PCA[[paste0(i,"_",f)]]$x),aes(x = PC1, y = PC2, group = perc_meth_list$Annotation)) + 
+  #       geom_point(size=4,aes(shape = perc_meth_list$regions,color = perc_meth_list$Annotation)) +
+  #       labs(title = paste0("PCA for ",if(i == "raw"){"single"}else{i}," methylation (",f,") for ",context),x=paste0("PC1: ",round(perc_PCA[[paste0("var_",i,"_",f)]][1]*100,1),"%"),y=paste0("PC2: ",round(perc_PCA[[paste0("var_",i,"_",f)]][2]*100,1),"%")) +
+  #       theme(legend.position="right") +
+  #       scale_color_discrete(name = "Annotation") +
+  #       scale_shape_manual(values = c(0,1,15:17),name = "Region") +
+  #       stat_ellipse(show.legend = FALSE,geom = "polygon", alpha = 0.25, aes(fill = perc_meth_list$Annotation)))
+  #     while (!is.null(dev.list())){dev.off()}
+  #   }
+  # # }
+  # }
+  }
 
-      sink(paste0("./Annotation/Annotation_stats_SMP_",hh_select,"_",context,"_",Annotation_idx,"_factor_",factor_name_idx,".txt"))
-      print(getTargetAnnotationStats(diffAnn_SMP,percentage=TRUE,precedence=TRUE))
-      sink()
-    
-      png(filename = paste0("./Annotation/Annotation_plot_SMP_",hh_select,"_",context,"_",Annotation_idx,"_factor_",factor_name_idx,".png"),width = 1920,height = 1080,units = "px")
-      plotTargetAnnotation(diffAnn_SMP,precedence=TRUE,main=paste0("SMP ",context," (",hh_select," methylation in ",Annotation_idx," database)"))
-      while (!is.null(dev.list())){dev.off()}
-    }
-      
-    if(!all(isEmpty(DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]]))){
-      diffAnn_DMR = annotateWithGeneParts(as(DMR_diff[[factor_name_idx]][[Annotation_idx]][[regions_idx]][[hh_select]],"GRanges"),Annotation_list[[Annotation_idx]])
-      
-      sink(paste0("./Annotation/Annotation_stats_DMR_",hh_select,"_",context,"_",Annotation_idx,"_factor_",factor_name_idx,".txt"))
-      print(getTargetAnnotationStats(diffAnn_DMR,percentage=TRUE,precedence=TRUE))
-      sink()
-    
-      png(filename = paste0("./Annotation/Annotation_plot_DMR_",hh_select,"_",context,"_",Annotation_idx,"_factor_",factor_name_idx,".png"),width = 1920,height = 1080,units = "px")
-      plotTargetAnnotation(diffAnn_SMP,precedence=TRUE,main=paste0("DMR ",context," (",hh_select," methylation in ",Annotation_idx," database)"))
-      while (!is.null(dev.list())){dev.off()}
-    }
-  }
-  }
-  }
-  }
-  }
-  }
-    perc_meth_list$perc_meth_raw_mean = rbind(perc_meth_list$perc_meth_raw_mean,data.frame(matrix(unlist(perc_meth$raw$mean[[Annotation_idx]]),nrow = length(regions),dimnames = list(paste0(Annotation_idx,"_",regions),experimental_design$Sample))))
-    perc_meth_list$perc_meth_raw_sd = rbind(perc_meth_list$perc_meth_raw_sd,data.frame(matrix(unlist(perc_meth$raw$sd[[Annotation_idx]]),nrow = length(regions),dimnames = list(paste0(Annotation_idx,"_",regions),experimental_design$Sample))))
-    perc_meth_list$perc_meth_tiles_mean = rbind(perc_meth_list$perc_meth_tiles_mean,data.frame(matrix(unlist(perc_meth$tiles$mean[[Annotation_idx]]),nrow = length(regions),dimnames = list(paste0(Annotation_idx,"_",regions),experimental_design$Sample))))
-    perc_meth_list$perc_meth_tiles_sd = rbind(perc_meth_list$perc_meth_tiles_sd,data.frame(matrix(unlist(perc_meth$tiles$sd[[Annotation_idx]]),nrow = length(regions),dimnames = list(paste0(Annotation_idx,"_",regions),experimental_design$Sample))))
-  }
-  for(factor_name_idx in unique(experimental_design$Factor_name)[-1]){
-    write.table(unique(c(unlist(SMP_genes[grep(pattern = factor_name_idx,x = names(SMP_genes))]),unlist(DMR_genes[grep(pattern = factor_name_idx,x = names(DMR_genes))]))),file = paste0("./Annotation/Total_diff_meth_genes_",context,"_",factor_name_idx,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
-  }
-  dir.create("percent_methylation",showWarnings = FALSE)
-  for(i in c("raw","tiles")){
-    for(f in c("mean","sd")){
-      for(Annotation_idx in names(perc_meth[[i]][[f]])){
-        write.table(x = data.frame(perc_meth[[i]][[f]][[Annotation_idx]]),file = paste0("./percent_methylation/perc_meth_",context,"_",i,"_",f,"_",Annotation_idx,".txt"),quote = FALSE,sep = "\t",row.names = TRUE,col.names = TRUE)
-      }
-      perc_PCA[[paste0(i,"_",f)]] = prcomp(perc_meth_list[[paste0("perc_meth_",i,"_",f)]])
-      perc_PCA[[paste0("var_",i,"_",f)]] = perc_PCA[[paste0(i,"_",f)]]$sdev^2/sum(perc_PCA[[paste0(i,"_",f)]]$sdev^2)
-      png(filename = paste0("./percent_methylation/PCA_",context,"_",i,"_",f,".png"),width = 1440,height = 810,units = "px")
-      print(ggplot(as.data.frame(perc_PCA[[paste0(i,"_",f)]]$x),aes(x = PC1, y = PC2, group = perc_meth_list$Annotation)) + 
-        geom_point(size=4,aes(shape = perc_meth_list$regions,color = perc_meth_list$Annotation)) +
-        labs(title = paste0("PCA for ",if(i == "raw"){"single"}else{i}," methylation (",f,") for ",context),x=paste0("PC1: ",round(perc_PCA[[paste0("var_",i,"_",f)]][1]*100,1),"%"),y=paste0("PC2: ",round(perc_PCA[[paste0("var_",i,"_",f)]][2]*100,1),"%")) +
-        theme(legend.position="right") +
-        scale_color_discrete(name = "Annotation") +
-        scale_shape_manual(values = c(0,1,15:17),name = "Region") +
-        stat_ellipse(show.legend = FALSE,geom = "polygon", alpha = 0.25, aes(fill = perc_meth_list$Annotation)))
-      while (!is.null(dev.list())){dev.off()}
-    }
-  }
-  }
-  
-  
-if("Import dataset" %in% section | "Run dataset on regions (Exons/Introns/Promoters/TSSes)" %in% section | "Run all regions (RAM/CPU intensive" %in% section){
-  ###### Save and finish ######
-  save(list = ls(pattern = "^raw|^tiles"),file = paste0(Experiment_name,"_",context,"_raw_data.RData.bz2"),compress = "bzip2")
-  save(list = ls()[!ls() %in% ls(pattern = "^raw|^tiles")],file = paste0(Experiment_name,"_",context,"_results_data.RData"))
-  end_time=Sys.time()
-  write.table(x = paste0(context,"\t",format(round(end_time-start_time,2),nsmall=2)),file = "./Runtime.txt",append = TRUE,quote = FALSE,row.names = FALSE,col.names = FALSE)
-  cat("#####   ",context," context run finished in ",format(round(end_time-start_time,2),nsmall=2),"   #####\n", sep = "")
-}
-  # End main for-loop
+save.image(paste0(init_params[["name"]],"_final.RData"))
