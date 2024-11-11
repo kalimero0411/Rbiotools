@@ -342,9 +342,6 @@ if("Read" %in% init_params[["section"]]){
                             sample.ids = experimental_design[["Sample"]][init_params[["factors"]][[variable]] %in% c(0,variable_idx)],
                             treatment = init_params[["factors"]][[variable]][init_params[["factors"]][[variable]] %in% c(0,variable_idx)])
     
-    save.image("tmp6.RData")
-    stop("OK stop")
-
     meth_poly[[scope]][[variable]][[context]][[comp_var[2]]] = calculateDiffMeth(subset_poly,overdispersion = "MN",mc.cores = init_params[["threads"]],save.db = FALSE)
 
     volcano_data = getData(meth_poly[[scope]][[variable]][[context]][[comp_var[2]]])[,c("meth.diff","qvalue")]
