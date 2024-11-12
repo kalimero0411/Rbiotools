@@ -417,7 +417,8 @@ if("Read" %in% init_params[["section"]]){
       # meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][!isEmpty(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]])]
       annot = annotateWithGeneParts(as(meth_diff[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]],"GRanges"),
                                     feature = genome_annotation)
-      annot_TSS = getAssociationWithTSS(annot)
+      if(sum(annot@members) > 0){
+        annot_TSS = getAssociationWithTSS(annot)
       meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = apply(annot@members,MARGIN = 2,function(x){
         unique(annot@dist.to.TSS$feature.name[as.logical(x)])
       })
@@ -440,7 +441,6 @@ if("Read" %in% init_params[["section"]]){
                write.table(x = meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][[feature]],
                            file = paste0("Annotation/",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,"_",feature,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
              })
-      if(length(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) > 0){
       if(all(lengths(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) > 0)){
         png(filename = paste0("Annotation/Piechart_",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,".png"),width = 1080,height = 1080,units = "px")
         par(cex = 2.5)
