@@ -440,7 +440,7 @@ if("Read" %in% init_params[["section"]]){
                write.table(x = meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][[feature]],
                            file = paste0("Annotation/",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,"_",feature,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
              })
-      
+      if(length(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) > 0){
       if(all(lengths(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) > 0)){
         png(filename = paste0("Annotation/Piechart_",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,".png"),width = 1080,height = 1080,units = "px")
         par(cex = 2.5)
@@ -454,6 +454,7 @@ if("Read" %in% init_params[["section"]]){
       boxplot(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]],xlab = "Feature",ylab = "Distance to TSS")
       while (!is.null(dev.list())) dev.off()
       
+      }
     }
     }
   }
