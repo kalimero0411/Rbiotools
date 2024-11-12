@@ -418,13 +418,13 @@ if("Read" %in% init_params[["section"]]){
       annot = annotateWithGeneParts(as(meth_diff[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]],"GRanges"),
                                     feature = genome_annotation)
       annot_TSS = getAssociationWithTSS(annot)
-      meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = apply(getMembers(annot),MARGIN = 2,function(x){
+      meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = apply(annot@members,MARGIN = 2,function(x){
         unique(annot@dist.to.TSS$feature.name[as.logical(x)])
       })
       names(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) = c("promoters","exons","introns")
       
-      meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = sapply(colnames(getMembers(annot)),function(x){
-        tmp = annot_TSS[as.logical(getMembers(annot)[,x]),,drop = FALSE]
+      meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = sapply(colnames(annot@members),function(x){
+        tmp = annot_TSS[as.logical(annot@members[,x]),,drop = FALSE]
         genes = unique(tmp[,"feature.name"])
         mean_dist = sapply(genes,function(gene){
           cat(x," | ",format(round(100*which(genes %in% gene)/length(genes),digits = 2),nsmall = 2),"%\r",sep = "")
@@ -440,14 +440,20 @@ if("Read" %in% init_params[["section"]]){
                write.table(x = meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][[feature]],
                            file = paste0("Annotation/",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,"_",feature,".txt"),quote = FALSE,row.names = FALSE,col.names = FALSE,sep = "\t")
              })
+      
+      if(all(lengths(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) > 0)){
+        png(filename = paste0("Annotation/Piechart_",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,".png"),width = 1080,height = 1080,units = "px")
+        par(cex = 2.5)
+        plotTargetAnnotation(annot)
+        while (!is.null(dev.list())) dev.off()
+      }else{
+        meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]][!lengths(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) > 0] = NULL
+      }
+      
       png(filename = paste0("Annotation/DistTSS_",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,".png"),width = 1080,height = 1080,units = "px")
       boxplot(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]],xlab = "Feature",ylab = "Distance to TSS")
       while (!is.null(dev.list())) dev.off()
       
-      png(filename = paste0("Annotation/Piechart_",scope,"_",variable,"_",context,"_",comp_var[2],"_",hh_select,".png"),width = 1080,height = 1080,units = "px")
-      par(cex = 2.5)
-      plotTargetAnnotation(annot)
-      while (!is.null(dev.list())) dev.off()
     }
     }
   }
