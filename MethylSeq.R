@@ -421,7 +421,7 @@ if("Read" %in% init_params[["section"]]){
       meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = apply(annot@members,MARGIN = 2,function(x){
         unique(annot@dist.to.TSS$feature.name[as.logical(x)])
       })
-      names(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) = c("promoters","exons","introns")
+      names(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) = c("promoters","exons","introns")[c("prom","exon","intron") %in% names(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]])]
       
       meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]] = sapply(colnames(annot@members),function(x){
         tmp = annot_TSS[as.logical(annot@members[,x]),,drop = FALSE]
@@ -433,7 +433,7 @@ if("Read" %in% init_params[["section"]]){
         cat("\n")
         return(mean_dist)
       })
-      names(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) = c("promoters","exons","introns")
+      names(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]) = c("promoters","exons","introns")[c("prom","exon","intron") %in% names(meth_distTSS[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]])]
       
       sapply(names(meth_genes[[scope]][[variable]][[context]][[comp_var[2]]][[hh_select]]),
              function(feature){
