@@ -4,7 +4,7 @@ packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel"
              "pheatmap","goseq","rstudioapi","ReportingTools","factoextra","vegan","plotly",
              "htmlwidgets","webshot2","av","ape","cluster","data.table",
              "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils",
-             "VennDiagram","wordcloud","tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite")
+             "VennDiagram","wordcloud","tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite","Rsubread")
 
 invisible(
   suppressMessages(
@@ -41,11 +41,9 @@ if(!require("bcbioRNASeq",character.only = TRUE,quietly = TRUE)){
 
 options(stringsAsFactors = FALSE)
 
-if(!exists("init_params")){
-  init_params = list() 
-}
+init_params = list() 
 
-###### Cluster commands ######
+###### command line ######
 if(!interactive()){
   options(rgl.useNULL = TRUE)
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
@@ -55,10 +53,10 @@ if(!interactive()){
                            "--wd","Working directory path",
                            "--name","Experiment name",
                            "--input","Aligner output files path (RSEM, STAR or kallisto)",
-                           "--mapper","One of RSEM, Kallisto, Salmon, HTseq-count, Counts",
+                           "--mapper","One of RSEM, Kallisto, Salmon, HTseq-count, FeatureCounts, Counts",
                            "--design","DESeq2 design formula (e.g. ~Genotype+treatment)",
                            "--exp","Experimental design file",
-                           "--controls","Variables to assign as controls (e.g. Species=At,Salt=0,Heat=None)",
+                           "--controls","Variables to assign as controls (e.g. Species:At,Salt:0,Heat:None)",
                            "--reduced","DESeq2 reduced design formula (Default = ~1)",
                            "--process","Process: ",
                            "","1 = Run settings",
@@ -107,19 +105,18 @@ if(!interactive()){
     load(args[["rdata"]])
     args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   }
-  init_params[["wd"]] = path.expand(args[["wd"]])
-  setwd(init_params[["wd"]])
-  init_params[["Experiment_name"]] = args[["name"]]
+  init_params[["wd"]] = normalizePath(args[["wd"]])
+  init_params[["name"]] = args[["name"]]
   if("input" %in% names(args)){
-    init_params[["input_path"]] = path.expand(args[["input"]])
+    init_params[["input_path"]] = normalizePath(args[["input"]])
   }
   
   if("exp" %in% names(args)){
-    init_params[["exp_design"]] = path.expand(args[["exp"]])
+    init_params[["exp_design"]] = normalizePath(args[["exp"]])
   }
   
   if("controls" %in% names(args)){
-    tmp_controls = strsplit(args[["controls"]],split = "=|,")[[1]]
+    tmp_controls = strsplit(args[["controls"]],split = ":|,")[[1]]
     init_params[["controls"]] = tmp_controls[seq(from = 2, to = length(tmp_controls), by = 2)]
     names(init_params[["controls"]]) = tmp_controls[seq(from = 1, to = length(tmp_controls), by = 2)]
     rm(tmp_controls)
@@ -128,7 +125,7 @@ if(!interactive()){
   init_params[["pca_type"]] = args[["3dpca"]]
 
   if("mapper" %in% names(args)){
-    init_params[["Mapper"]] = grep(pattern = args[["mapper"]],x = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),ignore.case = TRUE,value = TRUE)
+    init_params[["Mapper"]] = grep(pattern = paste0("^",args[["mapper"]],"$"),x = c("RSEM","Kallisto","Salmon","HTseq-count","FeatureCounts","Counts"),ignore.case = TRUE,value = TRUE)
   }
 
   init_params[["heatmap_row_clust"]] = !"heatmap_no_clust" %in% names(args)
@@ -154,7 +151,7 @@ if(!interactive()){
   }
   
   if("lengths" %in% names(args)){
-    init_params[["lengths"]] = path.expand(args[["lengths"]])
+    init_params[["lengths"]] = normalizePath(args[["lengths"]])
   }
   
   if("VST" %in% names(args)){
@@ -174,7 +171,7 @@ if(!interactive()){
   }
   
   if("tx2gene" %in% names(args)){
-    init_params[["tx2gene"]] = path.expand(args[["tx2gene"]])
+    init_params[["tx2gene"]] = normalizePath(args[["tx2gene"]])
   }
   
   init_params[["section"]] = c("Run settings",
@@ -202,10 +199,12 @@ if(!interactive()){
     init_params[["k_clusters"]] = as.numeric(args[["k"]])
     cat("Number of K clusters: ",init_params[["k_clusters"]],"\n",sep = "")
   }else{
-    cat("Performing K cluster optimization\n",sep = "")
+    if("Optimize K-means" %in% init_params[["section"]]){
+      cat("Performing K cluster optimization\n",sep = "")
+    }
   }
   if("GO_file" %in% names(args)){
-    init_params[["GO_file"]] = path.expand(args[["GO_file"]])
+    init_params[["GO_file"]] = normalizePath(args[["GO_file"]])
   }
   
   if("ensembl" %in% names(args)){
@@ -240,17 +239,16 @@ if(!interactive()){
   }
 
   ##### Additional arguments #####
-  invisible(
-    sapply(
-      which(names(args) %in% "arg"),
-      function(x){
-        eval(parse(text = args[[x]]),envir = .GlobalEnv)
+    if("arg" %in% names(args)){
+      add_args = unname(args[which(names(args) %in% "arg")])
+      for(i in seq_along(add_args)){
+        cat("Performing: ",add_args[[i]],"\n", sep = "")
+        eval(parse(text = add_args[[i]]),envir = .GlobalEnv)
       }
-      )
-    )
-
+    }
+    
   cat("Working directory: ",init_params[["wd"]],"\n",sep = "")
-  cat("Experiment name: ",init_params[["Experiment_name"]],"\n",sep = "")
+  cat("Experiment name: ",init_params[["name"]],"\n",sep = "")
   cat("Number of threads: ",init_params[["threads"]],"\n",sep = "")
   cat("Running sections: ",paste(init_params[["section"]],collapse = " | "),"\n",sep = "")
 
@@ -261,13 +259,7 @@ if(!interactive()){
     register(BPPARAM = SnowParam(workers = init_params[["threads"]]))
   }
 
-  ##### RData output ######
-  .classes = NULL
-  for(.obj in ls()){
-    suppressWarnings({.classes[.obj] = class(get(.obj))})
-  }
-  prmatrix(matrix(data = c(ls(),.classes),nrow = length(ls()),ncol = 2),quote = FALSE,rowlab = rep("",length(ls())),collab = rep("",2))
-  rm(.classes,.obj)
+  setwd(init_params[["wd"]])
 
   }else{
     
@@ -306,14 +298,14 @@ init_params[["section"]] = select.list(choices = c("Run settings",
 if("Run settings" %in% init_params[["section"]]){
   ###### Set working directory ######
   cat("#####   Select working directory   #####\n")
-  init_params[["wd"]] = path.expand(rstudioapi::selectDirectory(caption = "Choose working directory:"))
+  init_params[["wd"]] = normalizePath(rstudioapi::selectDirectory(caption = "Choose working directory:"))
   setwd(init_params[["wd"]])
   
-  init_params[["Experiment_name"]] = as.character(readline(prompt = "Experiment name: "))
+  init_params[["name"]] = as.character(readline(prompt = "Experiment name: "))
   
   # Get mapper output and factor number
   init_params[["Mapper"]] = select.list(choices = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),multiple = FALSE,title = "Select Mapper",graphics = TRUE)
-  init_params[["input_path"]] = path.expand(rstudioapi::selectDirectory(caption = "Choose mapping output directory: ",path = init_params[["wd"]]))
+  init_params[["input_path"]] = normalizePath(rstudioapi::selectDirectory(caption = "Choose mapping output directory: ",path = init_params[["wd"]]))
 
   if(select.list(choices = c("No","Yes"),multiple = FALSE,title = "Remove isoforms for annotation?",graphics = TRUE) == "Yes"){
     init_params[["remove_isoforms"]] = TRUE
@@ -377,9 +369,11 @@ if(GO_select == "From Ensembl"){
   init_params[["Ensembl_species_ID"]] = Ensembl_species[Ensembl_species$display_name %in% select.list(choices = Ensembl_species[,"display_name"],
                                                                 multiple = FALSE),"id"]
 }
-    save.image(paste0(init_params[["Experiment_name"]],".RData"))
+    save.image(paste0(init_params[["name"]],".RData"))
 }
   }
+
+print(data.frame(Value = sapply(init_params,function(x) paste(x,collapse = ", "))))
 
 if("Run settings" %in% init_params[["section"]]){
   
@@ -524,35 +518,8 @@ eval(parse(text = getURL("https://raw.githubusercontent.com/kevinblighe/clusGapK
     }
   }
   
-# PCA plot function for PC2 and PC3
-plotPCA_PC123 = function (object, intgroup = "condition", ntop = 500,returnData = FALSE){
-  rv = rowVars(assay(object))
-  if(length(rv) < 3){
-    cat("#### Not enough genes to create PCA for: ",intgroup," ####\n")
-    return(NULL)
-  }
-  select = order(rv, decreasing = TRUE)[seq_len(min(ntop,length(rv)))]
-  pca = prcomp(t(assay(object)[select, ]))
-  percentVar = pca$sdev^2/sum(pca$sdev^2)
-  if (!all(intgroup %in% names(colData(object)))){
-    stop("the argument 'intgroup' should specify columns of colData(dds)")
-  }
-  intgroup.df = as.data.frame(colData(object)[, intgroup,drop = FALSE])
-  group = if (length(intgroup) > 1){
-    factor(apply(intgroup.df, 1, paste, collapse = ":"))
-  }else{
-    colData(object)[[intgroup]]
-  }
-  d = data.frame(PC1 = pca$x[, 1],PC2 = pca$x[, 2], PC3 = pca$x[, 3], group = group,intgroup.df, name = colnames(object))
-  if (returnData){
-    attr(d, "percentVar") = percentVar[1:3]
-    return(d)
-  }
-  ggplot(data = d, aes_string(x = "PC2", y = "PC3", color = "group")) + geom_point(size = 3) + xlab(paste0("PC2: ", round(percentVar[2]*100), "% variance")) + ylab(paste0("PC3: ", round(percentVar[3]*100), "% variance")) + coord_fixed()
-}
-
 # 3D PCA plot function
-PCA_3D = function(pca_type){
+PCA_3D = function(pca_type,PCA_data){
   if("Single_factor" %in% names(PCA_data) & grepl(pattern = 1,pca_type)){
   for(run_factor in names(PCA_data[["Single_factor"]])){
     colors_3d = brewer.pal(n = 9,name = "Set1")[match(PCA_data[["Single_factor"]][[run_factor]][["group"]],table = unique(PCA_data[["Single_factor"]][[run_factor]][["group"]]))]
@@ -990,6 +957,19 @@ environment(pheatmap_seed) = environment(pheatmap)
     count_table = assay(data_set)
     count_table = count_table[!grepl(pattern = "^N_unmapped$|^N_multimapping$|^N_noFeature$|^N_ambiguous$",rownames(count_table)),]
   }
+    
+    if(init_params[["Mapper"]] %in% "FeatureCounts"){
+      if(!"lengths" %in% names(init_params)){
+        stop("FeatureCounts analysis must have a GTF file. Designate it with --lengths file.gtf")
+      }
+      count_table = featureCounts(files = file_names,
+                                  annot.ext = init_params[["lengths"]],
+                                  isGTFAnnotationFile = TRUE,
+                                  isPairedEnd = TRUE,
+                                  nthreads = init_params[["threads"]])$counts
+      data_set = DESeqDataSetFromMatrix(sampleTable = count_table, colData = experimental_design,design = init_params[["design"]])
+      count_table = assay(data_set)
+    }
 
   if(init_params[["Mapper"]] %in% "Counts"){
     for(i in file_names){
@@ -1071,11 +1051,8 @@ environment(pheatmap_seed) = environment(pheatmap)
       GO_table[["Term"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"TERM"]
       GO_table[["Ontology"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"ONTOLOGY"]
       GO_table[["Definition"]] = GO_terms[match(GO_table$GOID,table = GO_terms$GOID),"DEFINITION"]
-      # write.table(x = GO_table,file = paste0("GO_table_info_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-      write.table(x = GO_table[,c("Gene","GOID")],file = paste0("GO_table_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-      write.table(x = c("(species=Rbiotools)(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_BP_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-      write.table(x = c("(species=Rbiotools)(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_CC_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
-      write.table(x = c("(species=Rbiotools)(type=Molecular Function)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "MF","Gene"],gsub(x = GO_table[GO_table$Ontology %in% "MF","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_MF_",init_params[["Experiment_name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      # write.table(x = GO_table,file = paste0("GO_table_info_",init_params[["name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      write.table(x = GO_table[,c("Gene","GOID")],file = paste0("GO_table_",init_params[["name"]],".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
     }
     
   ##### Run DESeq2 #####
@@ -1089,7 +1066,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     data_set_DESeq = DESeq(data_set,test = "LRT",reduced = init_params[["reduced_formula"]],parallel = TRUE)
     cat("LRT ",init_params[["genes_isoforms"]]," completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
-    save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_DESeq2_data.RData"))
+    save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_DESeq2_data.RData"))
   }
 
 #####   Transform counts   #####
@@ -1112,7 +1089,7 @@ environment(pheatmap_seed) = environment(pheatmap)
         save(list = c("data_vst","experimental_design"), file = "WGCNA_data.RData")
         rm(data_vst)
 
-  save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","transformed_data.RData"))
+  save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","transformed_data.RData"))
   }
 
   if(any(c("Heatmaps","Dispersion estimates, PCAs and PCoAs","Optimize K-means","K-means clustering","Hierarchial clustering","MA-plot","DEG heatmap","goseq GO analysis","topGO analysis","Wordcloud","Venn diagram","Variable heatmap and report") %in% init_params[["section"]])){
@@ -1124,7 +1101,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     #   data_set_matrix = data_set_matrix[names(head(sort(abs(rowSums(data_set_matrix)),decreasing = TRUE),n = 65536)),]
     # }
     data_set_matrix_scaled = scale(data_set_matrix, center=TRUE, scale=TRUE)
-    save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+    save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
 
     if("Heatmaps" %in% init_params[["section"]]){
     cat("#####    Creating matrices and heatmaps    ######\n")
@@ -1151,7 +1128,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     #            filename = paste0(init_params[["rlog_vst"]],"/Heatmaps/Heatmap_gene_subset_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],".png")
     #            )
     # }
-    save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+    save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
     cat("Matrices and heatmaps completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     }
 
@@ -1169,22 +1146,23 @@ environment(pheatmap_seed) = environment(pheatmap)
   PCA_data = list()
   cat("#####    Creating PCA and factor heatmap plots    ######\n")
   for(i in init_params[["factors"]]){
-      PCA_data[["Single_factor"]][[i]] = plotPCA_PC123(object = data_set_transform,intgroup=i,returnData = TRUE)
-      if(!is.null(PCA_data[["Single_factor"]][[i]])){
+      PCA_data[["Single_factor"]][[i]][["PC12"]] = plotPCA(object = data_set_transform,intgroup=i,pcsToUse = c(1,2),returnData = TRUE)
+      PCA_data[["Single_factor"]][[i]][["PC23"]] = plotPCA(object = data_set_transform,intgroup=i,pcsToUse = c(2,3),returnData = TRUE)
+      if(!is.null(PCA_data[["Single_factor"]][[i]][["PC12"]])){
       png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,".png"),width = 1920,height = 1080,units = "px")
-      plot_temp = ggplot(PCA_data[["Single_factor"]][[i]],
-                     aes(PC1, PC2, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["name"]])) +
+      plot_temp = ggplot(PCA_data[["Single_factor"]][[i]][["PC12"]],
+                     aes(PC1, PC2, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["PC12"]][["name"]])) +
             geom_point(size=4) +
-            xlab(paste0("PC1: ",round(100 * attr(PCA_data[["Single_factor"]][[i]], "percentVar"))[1],"% variance")) +
-            ylab(paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[i]], "percentVar"))[2],"% variance")) +
+            xlab(paste0("PC1: ",round(100 * attr(PCA_data[["Single_factor"]][[i]][["PC12"]], "percentVar"))[1],"% variance")) +
+            ylab(paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[i]][["PC12"]], "percentVar"))[2],"% variance")) +
             theme(text = element_text(size = 20)) +
             coord_fixed() +
             scale_color_discrete(name = i) +
             geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
             guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_data[["Single_factor"]][[i]][["group"]])) > 3){
+      if(max(table(PCA_data[["Single_factor"]][[i]][["PC12"]][["group"]])) > 3){
         plot_temp = plot_temp +
-        stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["Single_factor"]][[i]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Single_factor"]][[i]][["group"]]) > 3)) +
+        stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["Single_factor"]][[i]][["PC12"]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Single_factor"]][[i]][["PC12"]][["group"]]) > 3)) +
         labs(fill = "Ellipse")
       }
       print(plot_temp)
@@ -1192,19 +1170,19 @@ environment(pheatmap_seed) = environment(pheatmap)
 
 
       png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,"_PC2.png"),width = 1920,height = 1080,units = "px")
-      plot_temp = ggplot(PCA_data[["Single_factor"]][[i]],
-                     aes(PC2, PC3, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["name"]])) +
+      plot_temp = ggplot(PCA_data[["Single_factor"]][[i]][["PC23"]],
+                     aes(PC2, PC3, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["PC23"]][["name"]])) +
               geom_point(size=4) +
-              xlab(paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[i]], "percentVar"))[2],"% variance")) +
-              ylab(paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[i]], "percentVar"))[3],"% variance")) +
+              xlab(paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[i]][["PC23"]], "percentVar"))[2],"% variance")) +
+              ylab(paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[i]][["PC23"]], "percentVar"))[3],"% variance")) +
               theme(text = element_text(size = 20)) +
               coord_fixed() +
               scale_color_discrete(name = i) +
               geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
               guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_data[["Single_factor"]][[i]][["group"]])) > 3){
+      if(max(table(PCA_data[["Single_factor"]][[i]][["PC23"]][["group"]])) > 3){
         plot_temp = plot_temp +
-              stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["Single_factor"]][[i]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Single_factor"]][[i]][["group"]]) > 3)) +
+              stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["Single_factor"]][[i]][["PC23"]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Single_factor"]][[i]][["PC23"]][["group"]]) > 3)) +
               labs(fill = "Ellipse")
       }
       print(plot_temp)
@@ -1216,44 +1194,45 @@ environment(pheatmap_seed) = environment(pheatmap)
   if(length(init_params[["factors"]]) > 1){
   for(i in init_params[["factors"]][-length(init_params[["factors"]])]){
   for(j in init_params[["factors"]][(which(init_params[["factors"]] %in% i)+1):length(init_params[["factors"]])]){
-    PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]] = plotPCA_PC123(object = data_set_transform,intgroup=c(i,j),returnData = TRUE)
-    if(!is.null(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]])){
-    attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], which = "factor") = c(i,j)
+    PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]] = plotPCA(object = data_set_transform,intgroup=c(i,j),pcsToUse = c(1,2),returnData = TRUE)
+    PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]] = plotPCA(object = data_set_transform,intgroup=c(i,j),pcsToUse = c(2,3),returnData = TRUE)
+    if(!is.null(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]])){
+    attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]], which = "factor") = c(i,j)
     png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,"_vs_",j,".png"),width = 1920,height = 1080,units = "px")
-    plot_temp = ggplot(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]],
-                       aes(PC1, PC2, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["name"]])) +
+    plot_temp = ggplot(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]],
+                       aes(PC1, PC2, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]][["name"]])) +
             geom_point(size=4) +
-            xlab(paste0("PC1: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], "percentVar"))[1],"% variance")) +
-            ylab(paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], "percentVar"))[2],"% variance")) +
+            xlab(paste0("PC1: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]], "percentVar"))[1],"% variance")) +
+            ylab(paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]], "percentVar"))[2],"% variance")) +
             theme(text = element_text(size = 20)) +
             coord_fixed() +
             scale_shape_manual(values = 15:100,name = j) +
             scale_color_discrete(name = i) +
             geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
             guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]])) > 3){
+      if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]][["group"]])) > 3){
         plot_temp = plot_temp +
-        stat_ellipse(geom = "polygon",alpha = 0.5,aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]) > 3)) +
+        stat_ellipse(geom = "polygon",alpha = 0.5,aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]][["group"]]) > 3)) +
         labs(fill = "Ellipse")
       }
     print(plot_temp)
     while (!is.null(dev.list())){dev.off()}
 
     png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,"_vs_",j,"_PC2.png"),width = 1920,height = 1080,units = "px")
-    plot_temp = ggplot(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]],
-                   aes(PC2, PC3, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["name"]])) +
+    plot_temp = ggplot(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]],
+                   aes(PC2, PC3, color = eval(expr = parse(text = i)), shape = eval(expr = parse(text = j)), label = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]][["name"]])) +
             geom_point(size=4) +
-            xlab(paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], "percentVar"))[2],"% variance")) +
-            ylab(paste0("PC3: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]], "percentVar"))[3],"% variance")) +
+            xlab(paste0("PC2: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]], "percentVar"))[2],"% variance")) +
+            ylab(paste0("PC3: ",round(100 * attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]], "percentVar"))[3],"% variance")) +
             theme(text = element_text(size = 20)) +
             coord_fixed() +
             scale_shape_manual(values = 15:100,name = j) +
             scale_color_discrete(name = i) +
             geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE,segment.color = "transparent") +
             guides(color=guide_legend(override.aes=list(fill=NA)))
-    if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]])) > 3){
+    if(max(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]][["group"]])) > 3){
       plot_temp = plot_temp +
-      stat_ellipse(geom = "polygon", alpha = 0.5, aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["group"]]) > 3)) +
+      stat_ellipse(geom = "polygon", alpha = 0.5, aes(fill = PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]][["group"]]) > 3)) +
       labs(fill = "Ellipse")
     }
     print(plot_temp)
@@ -1297,7 +1276,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   }
   }
   }
-  save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+  save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
   cat("PCAs and PCoAs completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
 
@@ -1317,7 +1296,7 @@ environment(pheatmap_seed) = environment(pheatmap)
 
     cat("Using K = ",init_params[["k_clusters"]],"\n", sep = "")
     cat("Completed K optimization in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
-    save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+    save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
   }
 
   #######      K-means clustering      #########
@@ -1354,7 +1333,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                     filename = paste0(init_params[["rlog_vst"]],"/Heatmaps/Heatmap_kclusters","_",init_params[["k_clusters"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],".png"),
                     kmeans_k = init_params[["k_clusters"]],
                     seed_input = init_params[["random_seed"]])
-      save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+      save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
       cat("Completed K-means clustering in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
 
@@ -1384,7 +1363,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     }
     while (!is.null(dev.list())){dev.off()}
     cat("Completed Hierarchical clustering in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
-    save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+    save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
   }
 
   #####   MA summary, MA plots, Gene heat map and GO annotation #####
@@ -1397,7 +1376,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     plotMA(deseq_results_LFC, alpha = init_params[["alpha"]], main = paste0(i), ylim = c(min(deseq_results_LFC$log2FoldChange),max(deseq_results_LFC$log2FoldChange)))
     while (!is.null(dev.list())){dev.off()}
     }
-    save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+    save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
     cat("MA summary and MA plots completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
   }
 
@@ -1405,7 +1384,7 @@ environment(pheatmap_seed) = environment(pheatmap)
   #   gene_length = matrix(data = unlist(bplapply(X = unique(sub(pattern = init_params[["isoform_pattern"]],replacement = "",x = rownames(gene_length))),FUN = function(x, y = gene_length){
   #     return(colMaxs(gene_length[grepl(pattern = x,x = rownames(gene_length)),,drop = FALSE]))
   #   })),ncol = ncol(gene_length),dimnames = list(unique(sub(pattern = init_params[["isoform_pattern"]],replacement = "",x = rownames(gene_length))),colnames(gene_length)))
-  #   save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+  #   save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
   # }
 
   ##### DEGs #####
@@ -1434,6 +1413,11 @@ environment(pheatmap_seed) = environment(pheatmap)
       deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
       deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < init_params[["alpha"]] & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
       write.table(deseq_results_sig[[compare_var]], file = paste0(compare_var,"_deseq_results_",init_params[["genes_isoforms"]],"_padj.txt"),quote = FALSE,sep = "\t")
+      if(exists(GO_table)){
+        write.table(x = c("(species=Rbiotools)(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP" & GO_table$Gene %in% names(deseq_results[[compare_var]]),"Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_BP_",init_params[["name"]],"_",compare_var,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+        write.table(x = c("(species=Rbiotools)(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC" & GO_table$Gene %in% names(deseq_results[[compare_var]]),"Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_CC_",init_params[["name"]],"_",compare_var,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+        write.table(x = c("(species=Rbiotools)(type=Molecular Function)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "MF" & GO_table$Gene %in% names(deseq_results[[compare_var]]),"Gene"],gsub(x = GO_table[GO_table$Ontology %in% "MF","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_MF_",init_params[["name"]],"_",compare_var,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE) 
+      }
     }
     rm(temp_results)
 
@@ -1456,9 +1440,14 @@ environment(pheatmap_seed) = environment(pheatmap)
     deseq_results[[compare_var]] = deseq_results[[compare_var]][!is.na(deseq_results[[compare_var]][["padj"]]),]
     deseq_results_sig[[compare_var]] = deseq_results[[compare_var]][deseq_results[[compare_var]][["padj"]] < init_params[["alpha"]] & abs(deseq_results[[compare_var]][["log2FoldChange"]]) >= 1,]
     write.table(deseq_results_sig[[compare_var]], file = paste0(compare_var,"_deseq_results_",init_params[["genes_isoforms"]],"_padj.txt"),quote = FALSE,sep = "\t")
+    if(exists(GO_table)){
+      write.table(x = c("(species=Rbiotools)(type=Biological Process)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "BP" & GO_table$Gene %in% names(deseq_results[[compare_var]]),"Gene"],gsub(x = GO_table[GO_table$Ontology %in% "BP","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_BP_",init_params[["name"]],"_",compare_var,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      write.table(x = c("(species=Rbiotools)(type=Cellular Component)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "CC" & GO_table$Gene %in% names(deseq_results[[compare_var]]),"Gene"],gsub(x = GO_table[GO_table$Ontology %in% "CC","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_CC_",init_params[["name"]],"_",compare_var,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE)
+      write.table(x = c("(species=Rbiotools)(type=Molecular Function)(curator=GO)",paste(GO_table[GO_table$Ontology %in% "MF" & GO_table$Gene %in% names(deseq_results[[compare_var]]),"Gene"],gsub(x = GO_table[GO_table$Ontology %in% "MF","GOID"],pattern = "GO:",replacement = ""),sep = " = ")),file = paste0("BinGO_MF_",init_params[["name"]],"_",compare_var,".txt"),quote = FALSE,sep = "\t",row.names = FALSE,col.names = FALSE) 
+    }
   }
   }
-  save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+  save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
 
   dir.create(paste0(init_params[["rlog_vst"]],"/Significant_DEGs"),showWarnings = FALSE)
   dir.create(paste0(init_params[["rlog_vst"]],"/PCA"),showWarnings = FALSE)
@@ -1523,7 +1512,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                       kmeans_k = init_params[["k_clusters"]],
                       seed_input = init_params[["random_seed"]])
         }}
-        save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+        save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
         cat(" DEG heatmap completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
       }
 
@@ -1550,7 +1539,7 @@ environment(pheatmap_seed) = environment(pheatmap)
         scale_color_manual(values = c("Up-regulated" = "dodgerblue3", "Unchanged" = "gray50", "Down-regulated" = "firebrick3")) +
         scale_alpha_manual(values = c("Up-regulated" = 1,"Unchanged" = 0.25,"Down-regulated" = 1)) +
         guides(colour = guide_legend(override.aes = list(size = 3))) +
-        geom_hline(yintercept = -log(0.05,10), linetype="dashed") +
+        geom_hline(yintercept = -log(init_params[["alpha"]],10), linetype="dashed") +
         geom_vline(xintercept = c(-1,1), linetype="dashed") +
         theme(text = element_text(size = 30))
 
@@ -1794,7 +1783,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                                        cex = 1.5,
                                        cat.cex = 1.5
               )
-              png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",init_params[["Experiment_name"]],"_",i,".png"),width = 1080,height = 720,units = "px")
+              png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",init_params[["name"]],"_",i,".png"),width = 1080,height = 720,units = "px")
               grid.newpage()
               pushViewport(viewport(width=unit(0.8, "npc"), height = unit(0.8, "npc")))
               grid.draw(temp_venn)
@@ -1812,7 +1801,7 @@ environment(pheatmap_seed) = environment(pheatmap)
                                      cex = 1.5,
                                      cat.cex = 1.5
             )
-            png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",init_params[["Experiment_name"]],".png"),width = 1080,height = 720,units = "px")
+            png(filename = paste0("rlog/Venn_diagram_",venn_name,"_",init_params[["name"]],".png"),width = 1080,height = 720,units = "px")
             grid.newpage()
             pushViewport(viewport(width=unit(0.8, "npc"), height = unit(0.8, "npc")))
             grid.draw(temp_venn)
@@ -1904,7 +1893,7 @@ environment(pheatmap_seed) = environment(pheatmap)
         }
         cat("\n")
       }
-  save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
+  save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
         }
       }
 
@@ -1956,6 +1945,6 @@ environment(pheatmap_seed) = environment(pheatmap)
     }
   cat("Reports completed in ",format(round(Sys.time()-time_start,2),nsmall=2),"\n", sep = "")
     }
-  save.image(paste0(init_params[["Experiment_name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","final.RData"))
+  save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","final.RData"))
   
 cat("#####    End of DEseq analysis    #####\n")

@@ -9,7 +9,7 @@ R scripts for bioinformatics
         --wd	Working directory path
         --name	Experiment name
         --input	Aligner output files path (RSEM, STAR or kallisto)
-        --mapper	One of RSEM, Kallisto, Salmon, HTseq-count, Counts
+        --mapper	One of RSEM, Kallisto, Salmon, HTseq-count, FeatureCounts, Counts
         --design	DESeq2 design formula (e.g. ~Genotype+treatment)
         --exp	Experimental design file (Control first)
         --reduced	DESeq2 reduced design formula (Default = ~1)
