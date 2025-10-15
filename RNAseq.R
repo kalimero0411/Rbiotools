@@ -1559,7 +1559,7 @@ environment(pheatmap_seed) = environment(pheatmap)
       if(!is.null(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]])){
       png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_DEGs_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",compare_var,".png"),width = 1920,height = 1080,units = "px")
       plot_temp = ggplot(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]],
-                         aes(PC1, PC2, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]][["PC12"]],which = "factor")]][[compare_var]][["PC12"]][["name"]])) +
+                         aes(PC1, PC2, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]][["name"]])) +
         geom_point(size=4) +
         xlab(paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]], "percentVar"))[1],"% variance")) +
         ylab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]], "percentVar"))[2],"% variance")) +
