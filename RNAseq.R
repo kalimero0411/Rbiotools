@@ -1554,42 +1554,43 @@ environment(pheatmap_seed) = environment(pheatmap)
 
       ######       PCA DEGs       ######
       if(!is.null(attr(deseq_results[[compare_var]],which = "factor")) & length(deseq_sig) > 0){
-      PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]] = plotPCA_PC123(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),returnData = TRUE)
-      if(!is.null(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]])){
+      PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]] = DESeq2::plotPCA(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),pcsToUse = c(1,2),returnData = TRUE)
+      PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]] = DESeq2::plotPCA(object = data_set_transform[rownames(deseq_results_sig[[compare_var]]),],intgroup=attr(deseq_results[[compare_var]],which = "factor"),pcsToUse = c(2,3),returnData = TRUE)
+      if(!is.null(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]])){
       png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_DEGs_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",compare_var,".png"),width = 1920,height = 1080,units = "px")
-      plot_temp = ggplot(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]],
-                         aes(PC1, PC2, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["name"]])) +
+      plot_temp = ggplot(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]],
+                         aes(PC1, PC2, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]][["PC12"]],which = "factor")]][[compare_var]][["PC12"]][["name"]])) +
         geom_point(size=4) +
-        xlab(paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]], "percentVar"))[1],"% variance")) +
-        ylab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]], "percentVar"))[2],"% variance")) +
+        xlab(paste0("PC1: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]], "percentVar"))[1],"% variance")) +
+        ylab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]], "percentVar"))[2],"% variance")) +
         theme(text = element_text(size = 20)) +
         coord_fixed() +
         scale_color_discrete(name = attr(deseq_results[[compare_var]],which = "factor")) +
         geom_line(size = 0) +
         geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
         guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["group"]])) > 3){
+      if(max(table(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]][["group"]])) > 3){
         plot_temp = plot_temp +
-          stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["group"]]) > 3)) +
+          stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC12"]][["group"]]) > 3)) +
           labs(fill = "Ellipse")
       }
       print(plot_temp)
       while (!is.null(dev.list())){dev.off()}
 
       png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_DEGs_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",compare_var,"_PC2.png"),width = 1920,height = 1080,units = "px")
-      plot_temp = ggplot(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]],
-                         aes(PC2, PC3, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["name"]])) +
+      plot_temp = ggplot(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]],
+                         aes(PC2, PC3, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]][["name"]])) +
         geom_point(size=4) +
-        xlab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]], "percentVar"))[2],"% variance")) +
-        ylab(paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]], "percentVar"))[3],"% variance")) +
+        xlab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]], "percentVar"))[2],"% variance")) +
+        ylab(paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]], "percentVar"))[3],"% variance")) +
         theme(text = element_text(size = 20)) +
         coord_fixed() +
         scale_color_discrete(name = attr(deseq_results[[compare_var]],which = "factor")) +
         geom_text_repel(size = 8,vjust = 0,nudge_y = 3,segment.size = 0, show.legend = FALSE) +
         guides(color=guide_legend(override.aes=list(fill=NA)))
-      if(max(table(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["group"]])) > 3){
+      if(max(table(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]][["group"]])) > 3){
         plot_temp = plot_temp +
-          stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["group"]]) > 3)) +
+          stat_ellipse(geom = "polygon", alpha = 0.25, aes(fill = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]][["group"]]), lwd = 0, show.legend = any(table(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]][["group"]]) > 3)) +
           labs(fill = "Ellipse")
       }
       print(plot_temp)
