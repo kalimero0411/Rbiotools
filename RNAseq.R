@@ -1178,8 +1178,8 @@ environment(pheatmap_seed) = environment(pheatmap)
       plot_temp = ggplot(PCA_data[["Single_factor"]][[i]][["PC23"]],
                      aes(PC2, PC3, color = eval(expr = parse(text = i)), group = experimental_design[[i]], label = PCA_data[["Single_factor"]][[i]][["PC23"]][["name"]])) +
               geom_point(size=4) +
-              xlab(paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[i]][["PC23"]], "percentVar"))[2],"% variance")) +
-              ylab(paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[i]][["PC23"]], "percentVar"))[3],"% variance")) +
+              xlab(paste0("PC2: ",round(100 * attr(PCA_data[["Single_factor"]][[i]][["PC23"]], "percentVar"))[1],"% variance")) +
+              ylab(paste0("PC3: ",round(100 * attr(PCA_data[["Single_factor"]][[i]][["PC23"]], "percentVar"))[2],"% variance")) +
               theme(text = element_text(size = 20)) +
               coord_fixed() +
               scale_color_discrete(name = i) +
@@ -1581,8 +1581,8 @@ environment(pheatmap_seed) = environment(pheatmap)
       plot_temp = ggplot(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]],
                          aes(PC2, PC3, color = eval(expr = parse(text = attr(deseq_results[[compare_var]],which = "factor"))), group = experimental_design[[attr(deseq_results[[compare_var]],which = "factor")]], label = PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]][["name"]])) +
         geom_point(size=4) +
-        xlab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]], "percentVar"))[2],"% variance")) +
-        ylab(paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]], "percentVar"))[3],"% variance")) +
+        xlab(paste0("PC2: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]], "percentVar"))[1],"% variance")) +
+        ylab(paste0("PC3: ",round(100 * attr(PCA_data[["DEGs"]][[attr(deseq_results[[compare_var]],which = "factor")]][[compare_var]][["PC23"]], "percentVar"))[2],"% variance")) +
         theme(text = element_text(size = 20)) +
         coord_fixed() +
         scale_color_discrete(name = attr(deseq_results[[compare_var]],which = "factor")) +
