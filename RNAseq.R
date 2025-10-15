@@ -305,7 +305,12 @@ if("Run settings" %in% init_params[["section"]]){
   
   # Get mapper output and factor number
   init_params[["Mapper"]] = select.list(choices = c("RSEM","Kallisto","Salmon","HTseq-count","Counts"),multiple = FALSE,title = "Select Mapper",graphics = TRUE)
-  init_params[["input_path"]] = normalizePath(rstudioapi::selectDirectory(caption = "Choose mapping output directory: ",path = init_params[["wd"]]))
+  if(select.list(title = "Select input STAR path?",choices = c("Yes","No"),multiple = FALSE) == "Yes"){
+    init_params[["input_path"]] = normalizePath(rstudioapi::selectDirectory(caption = "Choose mapping output directory: ",path = init_params[["wd"]]))
+  }else{
+    init_params[["input_path"]] = normalizePath(dirname(experimental_design[[1]][1]))
+  }
+  
 
   if(select.list(choices = c("No","Yes"),multiple = FALSE,title = "Remove isoforms for annotation?",graphics = TRUE) == "Yes"){
     init_params[["remove_isoforms"]] = TRUE
@@ -1146,8 +1151,8 @@ environment(pheatmap_seed) = environment(pheatmap)
   PCA_data = list()
   cat("#####    Creating PCA and factor heatmap plots    ######\n")
   for(i in init_params[["factors"]]){
-      PCA_data[["Single_factor"]][[i]][["PC12"]] = plotPCA(object = data_set_transform,intgroup=i,pcsToUse = c(1,2),returnData = TRUE)
-      PCA_data[["Single_factor"]][[i]][["PC23"]] = plotPCA(object = data_set_transform,intgroup=i,pcsToUse = c(2,3),returnData = TRUE)
+      PCA_data[["Single_factor"]][[i]][["PC12"]] = DESeq2::plotPCA(object = data_set_transform,intgroup=i,pcsToUse = c(1,2),returnData = TRUE)
+      PCA_data[["Single_factor"]][[i]][["PC23"]] = DESeq2::plotPCA(object = data_set_transform,intgroup=i,pcsToUse = c(2,3),returnData = TRUE)
       if(!is.null(PCA_data[["Single_factor"]][[i]][["PC12"]])){
       png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,".png"),width = 1920,height = 1080,units = "px")
       plot_temp = ggplot(PCA_data[["Single_factor"]][[i]][["PC12"]],
@@ -1194,8 +1199,8 @@ environment(pheatmap_seed) = environment(pheatmap)
   if(length(init_params[["factors"]]) > 1){
   for(i in init_params[["factors"]][-length(init_params[["factors"]])]){
   for(j in init_params[["factors"]][(which(init_params[["factors"]] %in% i)+1):length(init_params[["factors"]])]){
-    PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]] = plotPCA(object = data_set_transform,intgroup=c(i,j),pcsToUse = c(1,2),returnData = TRUE)
-    PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]] = plotPCA(object = data_set_transform,intgroup=c(i,j),pcsToUse = c(2,3),returnData = TRUE)
+    PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]] = DESeq2::plotPCA(object = data_set_transform,intgroup=c(i,j),pcsToUse = c(1,2),returnData = TRUE)
+    PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC23"]] = DESeq2::plotPCA(object = data_set_transform,intgroup=c(i,j),pcsToUse = c(2,3),returnData = TRUE)
     if(!is.null(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]])){
     attr(PCA_data[["Multiple_factor"]][[paste0(i,"_vs_",j)]][["PC12"]], which = "factor") = c(i,j)
     png(filename = paste0(init_params[["rlog_vst"]],"/PCA/PCA_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_",i,"_vs_",j,".png"),width = 1920,height = 1080,units = "px")
@@ -1373,7 +1378,7 @@ environment(pheatmap_seed) = environment(pheatmap)
     cat("#####    Shrinking results and calculating ,MA summary and plots    ######\n")
     deseq_results_LFC = lfcShrink(data_set_DESeq,coef = i,type = "apeglm",parallel = TRUE)
     png(filename = paste0("./MA-plot_",i,"_LFC_deseq_results_",init_params[["genes_isoforms"]],"_padj.png"),width = 1920,height = 1080,units = "px")
-    plotMA(deseq_results_LFC, alpha = init_params[["alpha"]], main = paste0(i), ylim = c(min(deseq_results_LFC$log2FoldChange),max(deseq_results_LFC$log2FoldChange)))
+    DESeq2::plotMA(deseq_results_LFC, alpha = init_params[["alpha"]], main = paste0(i), ylim = c(min(deseq_results_LFC$log2FoldChange),max(deseq_results_LFC$log2FoldChange)))
     while (!is.null(dev.list())){dev.off()}
     }
     save.image(paste0(init_params[["name"]],"_",init_params[["rlog_vst"]],"_",init_params[["genes_isoforms"]],"_","analysis_data.RData"))
