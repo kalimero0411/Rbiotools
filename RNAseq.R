@@ -41,7 +41,7 @@ if(!require("bcbioRNASeq",character.only = TRUE,quietly = TRUE)){
 
 options(stringsAsFactors = FALSE)
 
-init_params = list() 
+init_params = list()
 
 ###### command line ######
 if(!interactive()){

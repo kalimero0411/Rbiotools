@@ -89,6 +89,21 @@ ks_species_data_normalized = ks_species_data_normalized %>%
   mutate(Density_normalized = Density / max(Density)) %>%
   ungroup()
 
+# reorder = c(Outgroup = "Tarenaya_hassleriana",Outgroup = "Carica_papaya",Outgroup = "Capsicum_annuum",
+#             Basal = "Aethionema_arabicum",
+#             LineageIII = "Euclidium_syriacum",
+#             LineageIV = "Arabis_alpina",
+#             "Anastatica_hierochuntica",
+#             LineageII = "Eutrema_salsugineum",LineageII = "Thlaspi_arvense",LineageII = "Schrenkiella_parvula",LineageII = "Brassica_juncea",LineageII = "Brassica_rapa",LineageII = "Brassica_napus",LineageII = "Brassica_oleracea",
+#             LineageI = "Cardamine_hirsuta",LineageI = "Lepidium_sativum",LineageI = "Arabidopsis_thaliana",LineageI = "Arabidopsis_lyrata",LineageI = "Arabidopsis_halleri",LineageI = "Boechera_stricta",LineageI = "Capsella_rubella",LineageI = "Camelina_sativa")
+
+species_colors = rev(c("grey60","grey60","grey60",
+                   "azure",
+                   "chartreuse2",
+                   "pink",
+                   "white",
+                   "cyan","cyan","cyan","cyan","cyan","cyan","cyan",
+                   "red","red","red","red","red","red","red","red"))
 if("order" %in% names(args)){
   reorder = strsplit(args[["order"]],split = ",")[[1]]
 }else{
@@ -103,12 +118,6 @@ if("color" %in% names(args)){
 }
 
   
-# reorder = c(Outgroup = "Tarenaya_hassleriana",Outgroup = "Carica_papaya",Outgroup = "Capsicum_annuum",
-#             Basal = "Aethionema_arabicum",
-#             LineageIII = "Euclidium_syriacum",
-#             LineageI = "Lepidium_sativum",LineageI = "Cardamine_hirsuta",LineageI = "Arabidopsis_thaliana",LineageI = "Arabidopsis_lyrata",LineageI = "Arabidopsis_halleri",LineageI = "Boechera_stricta",LineageI = "Capsella_rubella",LineageI = "Camelina_sativa",LineageII = "Arabis_alpina",
-#             LineageIII = "Anastatica_hierochuntica",
-#             LineageII = "Thlaspi_arvense",LineageII = "Eutrema_salsugineum",LineageII = "Schrenkiella_parvula",LineageII = "Brassica_juncea",LineageII = "Brassica_rapa",LineageII = "Brassica_oleracea",LineageII = "Brassica_napus")
 # 
 # group_colors = c(Outgroup = "grey",
 #                  Basal = "purple",

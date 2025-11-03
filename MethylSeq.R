@@ -95,14 +95,6 @@ if(!interactive()){
   }
   }
   
-##### RData output ######
-.classes = NULL
-for(.obj in ls()){
-  suppressWarnings({.classes[.obj] = class(get(.obj))})
-}
-prmatrix(matrix(data = c(ls(),.classes),nrow = length(ls()),ncol = 2),quote = FALSE,rowlab = rep("",length(ls())),collab = rep("",2))
-rm(.classes,.obj)
-
 }else{
   
   init_params[["threads"]] = detectCores()
@@ -141,9 +133,7 @@ rm(.classes,.obj)
 }
 
 start_time=Sys.time()
-
-cat("Working directory: ",getwd(),"\n", sep = "")
-cat("Experiment name: ",init_params[["name"]],"\n", sep = "")
+print(data.frame(Value = sapply(init_params,function(x) paste(x,collapse = ", "))))
 setwd(init_params[["wd"]])
 
 if("analyze" %in% names(init_params)){
@@ -289,15 +279,12 @@ if("Read" %in% init_params[["section"]]){
     dir.create("Annotation",showWarnings = FALSE)
     dir.create("Volcano",showWarnings = FALSE)
     
-  ###### Annotation and Regions loop ######
-  for(variable in names(init_params[["factors"]])){
-  for(context in init_params[["context"]]){
-  for(scope in c("SMP","DMR")){
-  cat("######  Running analysis for ",variable," in ",context," context for ",scope,"s ######\n", sep = "")
-    
+    for(context in init_params[["context"]]){
+    for(scope in c("SMP","DMR")){
+    variable = names(init_params[["factors"]])[1]
     if(nrow(meth_unite[[scope]][[variable]][[context]]) > 0){
       write.table(x = getData(meth_unite[[scope]][[variable]][[context]]),
-                  file = paste0("Raw_data/",scope,"_",variable,"_",context,".txt"),
+                  file = paste0("Raw_data/",scope,"_",context,".txt"),
                   quote = FALSE,
                   sep = "\t",
                   row.names = FALSE,
@@ -305,16 +292,23 @@ if("Read" %in% init_params[["section"]]){
       perc_meth[[scope]][[variable]][[context]] = list(mean = colMeans(percMethylation(methylBase.obj = meth_unite[[scope]][[variable]][[context]])),
                                                        sd = colSds(percMethylation(methylBase.obj = meth_unite[[scope]][[variable]][[context]])))
     }
-  
-  if(!any(colSums(getData(meth_unite[[scope]][[variable]][[context]])[,grep(pattern = "numCs",meth_unite[[scope]][[variable]][[context]]@names)]) == 0)){
     
-  ###### Correlation ######
-  cat("#####   Creating correlation stats and plots   #####\n")
-  
-  png(paste0("Correlation/Correlation_",scope,"_",variable,"_",context,".png"),width = 1920,height = 1080,units = "px")
-  capture.output(getCorrelation(meth_unite[[scope]][[variable]][[context]],plot = TRUE),file = paste0("Correlation/Correlation_",scope,"_",variable,"_",context,".txt"))
-  while (!is.null(dev.list())) dev.off()
-  
+    if(!any(colSums(getData(meth_unite[[scope]][[variable]][[context]])[,grep(pattern = "numCs",meth_unite[[scope]][[variable]][[context]]@names)]) == 0)){
+      
+      ###### Correlation ######
+      cat("#####   Creating correlation stats and plots   #####\n")
+      
+      png(paste0("Correlation/Correlation_",scope,"_",context,".png"),width = 1920,height = 1080,units = "px")
+      capture.output(getCorrelation(meth_unite[[scope]][[variable]][[context]],plot = TRUE),file = paste0("Correlation/Correlation_",scope,"_",context,".txt"))
+      while (!is.null(dev.list())) dev.off()
+    }}
+      
+  ###### Annotation and Regions loop ######
+  for(variable in names(init_params[["factors"]])){
+  for(context in init_params[["context"]]){
+  for(scope in c("SMP","DMR")){
+  cat("######  Running analysis for ",variable," in ",context," context for ",scope,"s ######\n", sep = "")
+    
   ###### Cluster the samples ######
   cat("#####   Creating cluster plots   #####\n")
   png(filename = paste0("Cluster/Cluster_",scope,"_",variable,"_",context,".png"),width = 1080,height = 1080,units = "px")

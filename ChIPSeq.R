@@ -28,7 +28,7 @@ init_params = list()
 ###### Cluster commands ######
 if(!interactive()){
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-  must_args = c("exp","wd","name","annotation")
+  must_args = c("wd","name","anno")
   if(!all(must_args %in% names(args))){
     help = matrix(data = c("Choose to analyze MACS xls files or raw ChIP FASTQ files",
                            "Experimental design file must be Sample name [tab] xls input [tab] xls ChIP (for MACS data)",
@@ -38,7 +38,7 @@ if(!interactive()){
                            "--exp    ","Experimental design file",
                            "--wd    ","Working directory path",
                            "--name    ","Experiment name",
-                           "--annotation    ","Annotation file path (GFF or GTF file)",
+                           "--anno    ","Annotation file path (GFF or GTF file)",
                            "--analyze    ","Load an RData file and proceed to analysis",
                            "--fastq    ","Performs trimming, alignment and binning of FASTQ data (instead of MACS; default = FALSE)",
                            "--genome    ","Genome FASTA file (required for --fastq)",
@@ -62,50 +62,57 @@ if(!interactive()){
   
   init_params[["wd"]] = args[["wd"]]
   init_params[["name"]] = args[["name"]]
-  init_params[["annotation"]] = normalizePath(args[["annotation"]])
-  init_params[["exp"]] = normalizePath(args[["exp"]])
+  init_params[["annotation"]] = normalizePath(args[["anno"]])
+  
   if("org" %in% names(args)){
     init_params[["org_db"]] = suppressMessages(BiocManager::available(pattern = "org[.](.*)[.]db",include_installed = TRUE))[as.numeric(args[["org"]])]
-      if(!suppressMessages(require(init_params[["org_db"]],character.only = TRUE,quietly = TRUE))){
-        BiocManager::install(init_params[["org_db"]],update = FALSE,ask = FALSE)
-        library(init_params[["org_db"]],character.only = TRUE)
-      }
-      org_db_link = get(init_params[["org_db"]])
-      if("key" %in% names(args)){
-        init_params[["key"]] = keytypes(org_db_link)[args[["key"]]]
-      }else{
-        key_list = keytypes(org_db_link)
-        cat(paste0(seq_along(key_list),": ",key_list,"\n"))
-        stop("Run script with --key and key number",call. = TRUE)
-      }
+    if(!suppressMessages(require(init_params[["org_db"]],character.only = TRUE,quietly = TRUE))){
+      BiocManager::install(init_params[["org_db"]],update = FALSE,ask = FALSE)
+      library(init_params[["org_db"]],character.only = TRUE)
+    }
+    org_db_link = get(init_params[["org_db"]])
+    if("key" %in% names(args)){
+      init_params[["key"]] = keytypes(org_db_link)[as.numeric(args[["key"]])]
+    }else{
+      key_list = keytypes(org_db_link)
+      cat(paste0(seq_along(key_list),": ",key_list,"\n"))
+      stop("Run script with --key and key number",call. = TRUE)
+    }
   }else{
     init_params[["org_db"]] = ""
-  }
-  init_params[["fastq"]] = "fastq" %in% names(args)
-  if(init_params[["fastq"]]){
-    if("fraglen" %in% names(args)){
-      init_params[["fraglen"]] = as.numeric(args[["fraglen"]])
-    }else{
-      init_params[["fraglen"]] = 200
-    }
-    if("bin" %in% names(args)){
-      init_params[["bin"]] = as.numeric(args[["bin"]])
-    }else{
-      init_params[["bin"]] = 200
-    }
-    if("genome" %in% names(args)){
-      init_params[["genome"]] = normalizePath(args[["genome"]])
-    }else{
-      stop("Please provide a genome FASTA file using --genome", call. = TRUE)
-    }
   }
   
   if("analyze" %in% names(args)){
     init_params[["fastq"]] = FALSE
+    init_params_rem = init_params
     load(init_params[["analyze"]])
+    init_params = init_params_rem
+    rm(init_params_rem)
+    args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
     genome_annotation = txdbmaker::makeTxDbFromGFF(file = init_params[["annotation"]],format = "auto")
     if("org_db" %in% names(init_params)){
       org_db_link = get(init_params[["org_db"]])
+    }
+  }else{
+    init_params[["exp"]] = normalizePath(args[["exp"]])
+    
+    init_params[["fastq"]] = "fastq" %in% names(args)
+    if(init_params[["fastq"]]){
+      if("fraglen" %in% names(args)){
+        init_params[["fraglen"]] = as.numeric(args[["fraglen"]])
+      }else{
+        init_params[["fraglen"]] = 200
+      }
+      if("bin" %in% names(args)){
+        init_params[["bin"]] = as.numeric(args[["bin"]])
+      }else{
+        init_params[["bin"]] = 200
+      }
+      if("genome" %in% names(args)){
+        init_params[["genome"]] = normalizePath(args[["genome"]])
+      }else{
+        stop("Please provide a genome FASTA file using --genome", call. = TRUE)
+      }
     }
   }
   
@@ -120,10 +127,12 @@ if(!interactive()){
   cat("Number of threads: ",init_params[["threads"]],"\n", sep = "")
   
   ##### Additional arguments #####
-  add_args = unname(args[which(names(args) %in% "arg")])
-  for(i in seq_along(add_args)){
-    cat("Performing: ",add_args[[i]],"\n", sep = "")
-    eval(parse(text = add_args[[i]]))
+  if("arg" %in% names(args)){
+    add_args = unname(args[which(names(args) %in% "arg")])
+    for(i in seq_along(add_args)){
+      cat("Performing: ",add_args[[i]],"\n", sep = "")
+      eval(parse(text = add_args[[i]]),envir = .GlobalEnv)
+    }
   }
   
 }else{
@@ -141,12 +150,9 @@ init_params[["fastq"]] = grepl(pattern = "^y",x = as.character(readline(prompt =
 if(init_params[["fastq"]]){
   init_params[["fraglen"]] = as.numeric(readline(prompt = "Choose fragment length (Default = 200): "))
   init_params[["bin"]] = as.numeric(readline(prompt = "Choose bin size (Default = 200): "))
-  if(is.na(init_params[["fraglen"]])){
-    init_params[["fraglen"]] = 200
-  }
-  if(is.na(init_params[["bin"]])){
-    init_params[["bin"]] = 200
-  }
+  if(is.na(init_params[["fraglen"]])){init_params[["fraglen"]] = 200}
+  if(is.na(init_params[["bin"]])){init_params[["bin"]] = 200}
+  init_params[["genome"]] = selectFile(caption = "Select genome file: ",path = getwd())
 }
 init_params[["annotation"]] = selectFile(caption = "Select GFF/GTF file: ",path = getwd())
 init_params[["org_db"]] = select.list(choices = suppressMessages(BiocManager::available(pattern = "org[.](.*)[.]db",include_installed = TRUE)),title = "Select annotation database (0 for none)",multiple = FALSE)
@@ -157,10 +163,7 @@ org_db_link = get(init_params[["org_db"]])
 if(init_params[["org_db"]] != ""){
   init_params[["key"]] = select.list(choices = keytypes(org_db_link),title = "Select annotation key for genes",multiple = FALSE)
 }
-init_params[["genome"]] = selectFile(caption = "Select genome file: ",path = getwd())
 }
-
-setwd(init_params[["wd"]])
 
 ##### Register threads #####
 if(.Platform$OS.type == "unix"){
@@ -189,13 +192,18 @@ for(i in 2:ncol(experimental_design)){
   experimental_design[[i]] = normalizePath(experimental_design[[i]])
 }
 genome_annotation = txdbmaker::makeTxDbFromGFF(file = init_params[["annotation"]],format = "auto")
-genome_chromosomes = sub(x = sub(x = grep(pattern = "^>",x = readLines(init_params[["genome"]]),value = TRUE),pattern = " .*$",replacement = ""),pattern = ">",replacement = "")
+if(init_params[["fastq"]]){
+  genome_chromosomes = gsub(x = gsub(x = grep(pattern = "^>",x = readLines(init_params[["genome"]]),value = TRUE),pattern = " .*$",replacement = ""),pattern = ">",replacement = "")
 if(!all(genome_annotation$user_seqlevels %in% genome_chromosomes)){
   cat("Genome sequence chromosomes: ",genome_chromosomes,"\n")
   cat("Genome annotation chromosomes: ",genome_annotation$user_seqlevels,"\n")
   stop(paste0("Some annotations do not have matching chomosome sequences: ",genome_annotation$user_seqlevels[!genome_annotation$user_seqlevels %in% genome_chromosomes]),call. = TRUE)
 }
 }
+}
+
+print(data.frame(Value = sapply(init_params,function(x) paste(x,collapse = ", "))))
+setwd(init_params[["wd"]])
 
 ##### FASTQ analysis #####
 if(init_params[["fastq"]]){
@@ -282,16 +290,18 @@ cat("#####  FASTQ normalization, mapping and peak detection run finished in ",fo
 }
 
 ##### Analysis #####
-dir.create("Results/Coverage_plot",showWarnings = FALSE)
-dir.create("Results/Gene_groups",showWarnings = FALSE)
-dir.create("Results/GO_enrichment",showWarnings = FALSE)
-dir.create("Results/Vennpie",showWarnings = FALSE)
-dir.create("Results/Annotation_overlap",showWarnings = FALSE)
-dir.create("Results/Barchart",showWarnings = FALSE)
-dir.create("Results/Pie_chart",showWarnings = FALSE)
-dir.create("Results/Heatmap",showWarnings = FALSE)
-dir.create("Results/Average_profile",showWarnings = FALSE)
-dir.create("Results/Gene_set",showWarnings = FALSE)
+start_time=Sys.time()
+
+dir.create("Results/Coverage_plot",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/Gene_groups",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/GO_enrichment",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/Vennpie",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/Annotation_overlap",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/Barchart",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/Pie_chart",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/Heatmap",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/Average_profile",showWarnings = FALSE,recursive = TRUE)
+dir.create("Results/Gene_set",showWarnings = FALSE,recursive = TRUE)
 if(!init_params[["fastq"]] & !"analyze" %in% names(init_params)){
   init_params[["bin"]] = "_MACS"
   for(i in unlist(experimental_design[["Peaks"]],use.names = FALSE)){
@@ -325,7 +335,7 @@ tagMatrix[[bed_name]] = getTagMatrix(peak_BED, windows=promoters)
 ##### General statistics plots #####
 cat("#####   Creating coverage plot for ",bed_name,"   #####\n", sep = "")
 png(filename = paste0("Results/Coverage_plot/",bed_name,"_bin",init_params[["bin"]],"_coverage_plot.png"),width = 1440,height = 810,units = "px")
-  print(covplot(peak_BED, weightCol = "V5", chrs = genome_chromosomes))
+  print(covplot(peak_BED, weightCol = "V5", chrs = genome_annotation$user_seqlevels))
 while (!is.null(dev.list())){dev.off()}
 
 cat("#####   Creating average profile for ",bed_name,"   #####\n", sep = "")
@@ -371,7 +381,7 @@ if(init_params[["org_db"]] != ""){
 cat("#####   Creating gene groups for ",bed_name,"   #####\n", sep = "")
   #,keyType = "TAIR"
 gene_group = groupGO(gene = gene[[bed_name]],OrgDb = org_db_link,keyType = init_params[["key"]],ont = "BP",level = 3,readable = TRUE)
-png(filename = paste0("Results/",bed_name,"_bin",init_params[["bin"]],"_gene_groups.png"),width = 1440,height = 810,units = "px")
+png(filename = paste0("Results/Gene_groups/",bed_name,"_bin",init_params[["bin"]],"_gene_groups.png"),width = 1440,height = 810,units = "px")
   print(barplot(gene_group, drop=TRUE))
 while (!is.null(dev.list())){dev.off()}
 

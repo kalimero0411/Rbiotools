@@ -1,7 +1,7 @@
 ##### SETUP #####
 packages = c("purrr", "bindr", "Biobase", "BiocGenerics", "checkmate", "digest","dplyr", "dynamicTreeCut", "flashClust", 
              "ggplot2", "gplots", "ggpubr", "IRanges", "RColorBrewer", "robust", "tidyr", "WGCNA","parallel","R.utils",
-             "MatrixGenerics","pheatmap")
+             "MatrixGenerics","pheatmap","rstudioapi")
 
 if(interactive()){
   packages = c(packages,"BiocParallel")
@@ -27,7 +27,7 @@ invisible(
 
 
 options(stringsAsFactors = FALSE)
-
+init_params = list()
 if(!interactive()){
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   must_args = c("rdata","wd","name","threads")
@@ -55,40 +55,39 @@ if(!interactive()){
     load(args[["rdata"]])
   }
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
-  section = c()
-  wd = args[["wd"]]
-  Experiment_name = args[["name"]]
+  init_params[["section"]] = c()
+  init_params[["wd"]] = normalizePath(args[["wd"]])
+  init_params[["name"]] = as.character(args[["name"]])
   if("factors" %in% names(args)){
-    rep_factors = unlist(strsplit(args[["factors"]],split = ","))
+    init_params[["rep_factors"]] = unlist(strsplit(args[["factors"]],split = ","))
   }else{
-    rep_factors = colnames(experimental_design)
+    init_params[["rep_factors"]] = colnames(experimental_design)
   }
-  blockwise = "blockwise" %in% names(args)
+  init_params[["blockwise"]] = "blockwise" %in% names(args)
   if("power" %in% names(args)){
-    section = c(section,"power")
+    init_params[["section"]] = c(init_params[["section"]],"power")
   }
   if("TOM" %in% names(args)){
-    softPower = as.numeric(args[["TOM"]])
-    section = c(section,"TOM")
+    init_params[["softPower"]] = as.numeric(args[["TOM"]])
+    init_params[["section"]] = c(init_params[["section"]],"TOM")
   }
   if("minmod" %in% names(args)){
-    minModuleSize = as.numeric(args[["minmod"]])
+    init_params[["minModuleSize"]] = as.numeric(args[["minmod"]])
   }else{
-    minModuleSize = 50
+    init_params[["minModuleSize"]] = 50
   }
   if("maxblock" %in% names(args)){
-    maxBlockSize = args[["maxblock"]]
+    init_params[["maxBlockSize"]] = as.numeric(args[["maxblock"]])
   }else{
-    maxBlockSize = 10000
+    init_params[["maxBlockSize"]] = 10000
   }
   if("min_exp" %in% names(args)){
-    min_expression = as.numeric(args[["min_exp"]])
+    init_params[["min_expression"]] = as.numeric(args[["min_exp"]])
   }else{
-    min_expression = 0
+    init_params[["min_expression"]] = 0
   }
-  dir.create(path = paste0(wd,"/",Experiment_name),showWarnings = FALSE)
-  setwd(paste0(wd,"/",Experiment_name))
-  threads = as.numeric(args[["threads"]])
+  
+  init_params[["threads"]] = as.numeric(args[["threads"]])
   
   ##### Additional arguments #####
   invisible(
@@ -99,10 +98,6 @@ if(!interactive()){
       }
     )
   )
-  
-  cat("Working directory: ",getwd(),"\n",sep = "")
-  cat("Experiment name: ",Experiment_name,"\n",sep = "")
-  cat("Number of threads: ",threads,"\n",sep = "")
 
   ##### Register threads #####
   # if(.Platform$OS.type == "unix"){
@@ -111,43 +106,35 @@ if(!interactive()){
   #   register(BPPARAM = SerialParam())
   # }
   
-  ##### RData output ######
-  .classes = NULL
-  for(.obj in ls()){
-    suppressWarnings({.classes[.obj] = class(get(.obj))})
-  }
-  prmatrix(matrix(data = c(ls(),.classes),nrow = length(ls()),ncol = 2),quote = FALSE,rowlab = rep("",length(ls())),collab = rep("",2))
-  rm(.classes,.obj)
-  
 }else{
-  threads = detectCores()
-  wd = rstudioapi::selectDirectory(caption = "Choose working directory:")
-  load(file.choose())
-  Experiment_name = as.character(readline(prompt = "Select experiment name: "))
-  section = select.list(choices = c("TOM","power"),multiple = TRUE)
-  if("TOM" %in% section){
-    softPower = as.numeric(readline(prompt = "Select soft power value: "))
-    blockwise = "Blockwise module creation" == select.list(choices = c("Single TOM","Blockwise module creation"),multiple = FALSE)
-    if(blockwise){
-      maxBlockSize = readline(prompt = "Select maximum block size: ")
+  init_params[["threads"]] = detectCores()
+  init_params[["wd"]] = rstudioapi::selectDirectory(caption = "Choose working directory:",path = getwd())
+  load(rstudioapi::selectFile(caption = "Select WGCNA_data.RData file"))
+  init_params[["name"]] = as.character(readline(prompt = "Select experiment name: "))
+  init_params[["section"]] = select.list(choices = c("TOM","power"),multiple = TRUE)
+  if("TOM" %in% init_params[["section"]]){
+    init_params[["softPower"]] = as.numeric(readline(prompt = "Select soft power value: "))
+    init_params[["blockwise"]] = "Blockwise module creation" == select.list(choices = c("Single TOM","Blockwise module creation"),multiple = FALSE)
+    if(init_params[["blockwise"]]){
+      init_params[["maxBlockSize"]] = readline(prompt = "Select maximum block size: ")
     }
   }
-  minModuleSize = as.numeric(readline(prompt = "Select minimum module size (Typically 50): "))
-  setwd(wd)
-  data_format = select.list(choices = c("rds","tsv","csv"),multiple = FALSE,title = "Select data format")
-  min_expression = as.numeric(readline(prompt = "Minimum expression: "))
-  rep_factors = select.list(choices = colnames(experimental_design),multiple = TRUE,title = "Select factors")
+  init_params[["minModuleSize"]] = as.numeric(readline(prompt = "Select minimum module size (Typically 50): "))
+  init_params[["min_expression"]] = as.numeric(readline(prompt = "Minimum expression: "))
+  init_params[["rep_factors"]] = select.list(choices = colnames(experimental_design),multiple = TRUE,title = "Select factors")
 }
 
-enableWGCNAThreads(nThreads = threads)
+setwd(paste0(init_params[["wd"]]))
+print(data.frame(Value = sapply(init_params,function(x) paste(x,collapse = ", "))))
+enableWGCNAThreads(nThreads = init_params[["threads"]])
 
 if(!exists("input_mat")){
-  input_mat = t(data_vst[apply(data_vst,1,max) > min_expression,])
-if(!is.null(rep_factors)){
-  experiment_reps = factor(paste(experimental_design[,rep_factors[1]],sep = "."))
-  if(length(rep_factors) > 1){
-  for(i in 2:length(rep_factors)){
-    experiment_reps = factor(paste(experiment_reps,experimental_design[,rep_factors[i]],sep = "."))
+  input_mat = t(data_vst[apply(data_vst,1,max) > init_params[["min_expression"]],])
+if(!is.null(init_params[["rep_factors"]])){
+  experiment_reps = factor(paste(experimental_design[,init_params[["rep_factors"]][1]],sep = "."))
+  if(length(init_params[["rep_factors"]]) > 1){
+  for(i in 2:length(init_params[["rep_factors"]])){
+    experiment_reps = factor(paste(experiment_reps,experimental_design[,init_params[["rep_factors"]][i]],sep = "."))
   }
   }
 }
@@ -161,7 +148,7 @@ if(goodSamplesGenes(input_mat, verbose = 0)$allOK){
   stop("Problem with the data (goodSamplesGenes failed)!", call. = TRUE)
 }
 
-if("power" %in% section){
+if("power" %in% init_params[["section"]]){
   powers = c(c(1:10), seq(from = 12, to=40, by=2))
   sft = pickSoftThreshold(input_mat,
                         powerVector = powers,
@@ -170,7 +157,7 @@ if("power" %in% section){
 
 #### Scale Free Topology Model Fit ####
 sizeGrWindow(9, 5); par(mfrow = c(1,2)); cex1 = 0.9
-pdf(file = paste0(Experiment_name,"_sft.pdf"), width = 9, height = 6)
+pdf(file = paste0(init_params[["name"]],"_sft.pdf"), width = 9, height = 6)
 
 plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      xlab="Soft Threshold (power)",ylab=expression("Scale Free Topology Model Fit (signed " ~ R^{2} ~ ")"),type="n",
@@ -184,22 +171,23 @@ plot(sft$fitIndices[,1], sft$fitIndices[,5],
      main = paste("Mean connectivity"))
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 while(!is.null(dev.list())) dev.off()
-save.image(paste0(Experiment_name,"_sft.RData"))
+unlink("Rplots*.pdf")
+save.image(paste0(init_params[["name"]],"_sft.RData"))
 }
 
 
-if("TOM" %in% section){
-  if(!blockwise){
+if("TOM" %in% init_params[["section"]]){
+  if(!init_params[["blockwise"]]){
     dissTOM = 1 - TOMsimilarity(adjacency(input_mat,
-                                          power = softPower,
+                                          power = init_params[["softPower"]],
                                           type = "signed"),
                                 TOMType="signed")
     
-    save.image(paste0(Experiment_name,"_dissTOM.RData"))
+    save.image(paste0(init_params[["name"]],"_dissTOM.RData"))
     
     # Tree clustering
     geneTree = flashClust(as.dist(dissTOM), method = "average")
-    pdf(file = paste0("Gene_Dendrogram_",Experiment_name,".pdf"), width = 9, height = 6)
+    pdf(file = paste0("Gene_Dendrogram_",init_params[["name"]],".pdf"), width = 9, height = 6)
     plot(geneTree, xlab = "", sub = "", main = "Gene clustering on TOM-based dissimilarity",
          labels = FALSE, hang = 0.04)
     while(!is.null(dev.list())) dev.off()
@@ -209,16 +197,16 @@ if("TOM" %in% section){
                                 distM = dissTOM,
                                 deepSplit = 2,
                                 pamRespectsDendro = FALSE,
-                                minClusterSize = minModuleSize)
-    write.table(table(dynamicMods),row.names = FALSE,quote = FALSE, file = paste0("Dynamic_Modules_table_",Experiment_name,".txt"))
+                                minClusterSize = init_params[["minModuleSize"]])
+    write.table(table(dynamicMods),row.names = FALSE,quote = FALSE, file = paste0("Dynamic_Modules_table_",init_params[["name"]],".txt"))
     
     # Plotting modules
     dynamicColors = labels2colors(dynamicMods)
     names(dynamicColors) = colnames(input_mat)
-    write.table(file = paste0("Gene_module_map_",Experiment_name,".txt"),data.frame(Gene = colnames(input_mat),Module = dynamicColors),col.names = TRUE,quote = FALSE,row.names = FALSE,sep = "\t")
-    write.table(table(dynamicColors), file = paste0("Modules_table_",Experiment_name,".txt"))
+    write.table(file = paste0("Gene_module_map_",init_params[["name"]],".txt"),data.frame(Gene = colnames(input_mat),Module = dynamicColors),col.names = TRUE,quote = FALSE,row.names = FALSE,sep = "\t")
+    write.table(table(dynamicColors), file = paste0("Modules_table_",init_params[["name"]],".txt"))
     
-    pdf(file = paste0("Gene_dendrogram_modules_",Experiment_name,".pdf"), width = 9, height = 6)
+    pdf(file = paste0("Gene_dendrogram_modules_",init_params[["name"]],".pdf"), width = 9, height = 6)
     plotDendroAndColors(dendro = geneTree,
                         colors = dynamicColors,
                         groupLabels = "Dynamic Tree Cut",
@@ -232,34 +220,34 @@ if("TOM" %in% section){
     # Calculate modules eigenvalues
     MEList = moduleEigengenes(input_mat, colors = dynamicColors)
     MEDiss = 1-cor(MEList$eigengenes)
-    write.csv(MEDiss, file = paste0("MEs_modules_",Experiment_name,".csv"))
-    write.csv(MEList$eigengenes, file = paste0("MEs_conditions_",Experiment_name,".csv"))
+    write.csv(MEDiss, file = paste0("MEs_modules_",init_params[["name"]],".csv"))
+    write.csv(MEList$eigengenes, file = paste0("MEs_conditions_",init_params[["name"]],".csv"))
     
     METree = hclust(as.dist(MEDiss), method = "average")
-    pdf(file = paste0("Dendrogram_module_eigenvalues_",Experiment_name,".pdf"), width = 9, height = 6)
+    pdf(file = paste0("Dendrogram_module_eigenvalues_",init_params[["name"]],".pdf"), width = 9, height = 6)
     plot(METree, main = "Clustering module eigenvalues",
          xlab = "", sub = "")
     while(!is.null(dev.list())) dev.off()
     
   }else{
     blockTOM = blockwiseModules(input_mat,
-                                maxBlockSize = maxBlockSize,
-                                power = softPower,
+                                maxBlockSize = init_params[["maxBlockSize"]],
+                                power = init_params[["softPower"]],
                                 TOMType = "signed",
-                                minModuleSize = minModuleSize,
+                                minModuleSize = init_params[["minModuleSize"]],
                                 reassignThreshold = 0,
                                 mergeCutHeight = 0.25,
                                 numericLabels = TRUE,
                                 saveTOMs = TRUE,
-                                saveTOMFileBase = Experiment_name,
+                                saveTOMFileBase = init_params[["name"]],
                                 verbose = 3)
     
-    # save.image(paste0(Experiment_name,"_dissTOM.RData"))
+    # save.image(paste0(init_params[["name"]],"_dissTOM.RData"))
     module_colors = labels2colors(blockTOM$colors)
     names(module_colors) = names(blockTOM[["colors"]])
     
     for(i in 1:length(blockTOM$dendrograms)){
-      png(filename = paste0("Module_tree_",Experiment_name,"_",i,".png"), width = 1920, height = 1080, units = "px")
+      png(filename = paste0("Module_tree_",init_params[["name"]],"_",i,".png"), width = 1920, height = 1080, units = "px")
       plotDendroAndColors(blockTOM$dendrograms[[i]],
                           module_colors[blockTOM$blockGenes[[i]]],
                           "Module colors",
@@ -273,7 +261,7 @@ if("TOM" %in% section){
     
     MEList = moduleEigengenes(input_mat, colors = module_colors)
     METree = hclust(as.dist(1-cor(MEList$eigengenes)), method = "average")
-    png(filename = paste0("Eigengene_module_clustering",Experiment_name,".png") ,width = 1920, height = 1080, units = "px")
+    png(filename = paste0("Eigengene_module_clustering",init_params[["name"]],".png") ,width = 1920, height = 1080, units = "px")
     plot(METree,
          main = "Clustering module eigenvalues",
          xlab = "",
@@ -321,11 +309,11 @@ for(me in names(MEList$averageExpr)){
                         position=position_dodge(0.05)))
   while (!is.null(dev.list())){dev.off()}
 }
-save(list = ls()[grep(pattern = "dissTOM|blockTOM",x = ls(),invert = TRUE)],file = paste0(Experiment_name,"_TOM.RData"))
-# save.image(paste0(Experiment_name,"_TOM.RData"))
+save(list = ls()[grep(pattern = "dissTOM|blockTOM",x = ls(),invert = TRUE)],file = paste0(init_params[["name"]],"_TOM.RData"))
+# save.image(paste0(init_params[["name"]],"_TOM.RData"))
 }
 
-if("top genes" %in% section){
+if("top genes" %in% init_params[["section"]]){
 # Top membership genes
 geneModuleMembership = as.data.frame(cor(input_mat, orderMEs(moduleEigengenes(input_mat, dynamicColors)$eigengenes), use = "p"))
 topgenes = lapply(colnames(geneModuleMembership),function(module){
@@ -485,19 +473,19 @@ pheatmap(data_topgenes_scaled,
 
 AE = t(moduleEigengenes(input_mat[,colnames(input_mat) %in% degs_all,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_all])[["averageExpr"]])
 rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
-png(filename = paste0("DEG_heamap_all_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
+png(filename = paste0("DEG_heamap_all_",init_params[["name"]],".png"), width = 720, height = 1080, units = "px")
 pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (all changes)",fontsize = 20)
 while(!is.null(dev.list())) dev.off()
 
 AE = t(moduleEigengenes(input_mat[,colnames(input_mat) %in% degs_up,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_up])[["averageExpr"]])
 rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
-png(filename = paste0("DEG_heamap_up_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
+png(filename = paste0("DEG_heamap_up_",init_params[["name"]],".png"), width = 720, height = 1080, units = "px")
 pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (upregulated)",fontsize = 20)
 while(!is.null(dev.list())) dev.off()
 
 AE = t(moduleEigengenes(input_mat[,colnames(input_mat) %in% degs_down,drop = FALSE], colors = dynamicColors[names(dynamicColors) %in% degs_down])[["averageExpr"]])
 rownames(AE) = gsub(pattern = "^AE",replacement = "",x = rownames(AE))
-png(filename = paste0("DEG_heamap_down_",Experiment_name,".png"), width = 720, height = 1080, units = "px")
+png(filename = paste0("DEG_heamap_down_",init_params[["name"]],".png"), width = 720, height = 1080, units = "px")
 pheatmap(AE,annotation_col = experimental_design,main = "DEG modules (downregulated)",fontsize = 20)
 while(!is.null(dev.list())) dev.off()
 
