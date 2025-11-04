@@ -4,15 +4,10 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
     install.packages("BiocManager")
 }
 
-
-file_path = paste0(dirname(gsub(pattern = "--file=",replacement = "",grep(pattern = "--file",x = commandArgs(),value = TRUE))),"/Rupdate.pkgs")
-
-if(file.exists(file_path)){
- cat("Getting previous packages from ",paste0(file_path),"...\n",sep = "")
- packages = unique(c(rownames(installed.packages()),read.table(file = file_path)[[1]]))
-}else{
- packages = unique(rownames(installed.packages()))
-}
+packages_file = dirname(system(command = paste0("readlink -f ",gsub(pattern = "--file=",replacement ="",
+                                                        grep(pattern = "--file",value = TRUE,commandArgs())),sep = ""),
+                   intern = TRUE))
+packages = read.table(file = normalizePath(paste0(packages_file,"/Rupdate.pkgs")))[[1]]
 
 if(any(!packages %in% unique(rownames(installed.packages())))){
 cat("Installing missing R packages...\n")
@@ -36,9 +31,6 @@ if(!"bcbioRNASeq" %in% unique(rownames(installed.packages()))){
   )
 }
 }
-
-cat("Writting package list to ",file_path,"...\n",sep = "")
-write.table(file = file_path ,x = packages, row.names = FALSE, quote = FALSE, col.names=FALSE)
 
 cat("Updating R packages...\n")
 BiocManager::install(update = TRUE,ask = FALSE)
