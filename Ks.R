@@ -29,10 +29,10 @@ must_args = c("gff", "kaks")
 if(!all(must_args %in% names(args))){
   print_help <- function() {
     title = "Ks ridge plot from MCScanX output"
-    opts = rbind(c("--gff    ", "Path to folder with gff files"),
-               c("--kaks    ", "Path to folder with ka/ks collinearity files"),
+    opts = rbind(c("--gff    ", "Path to folder with gff files (.gff / .gff3)"),
+               c("--kaks    ", "Path to folder with ka/ks collinearity files (.kaks)"),
                c("--order    ", "Order of species by kaks file names (without extention, comma separated)"),
-               c("--color    ", "Species group number (for color designation, e.g. '1,1,2,2,2,3,3')"),
+               c("--color    ", "Species color in order (e.g. 'grey,grey,black,black,black,cyan,cyan')"),
                c("--ks_cutoff    ", "Cutoff for Ks plot (Default = 2)"),
                c("--regex    ","Regex to rename files to samples"))
     lines = c("Usage: Rscript Ks.R [options]","",title,"","Options:",apply(opts, 1, function(r) sprintf("  %-*s  %s", max(nchar(opts[,1])), r[1], r[2]))    )
@@ -63,15 +63,17 @@ gff = lapply(gff_files,function(x){
 })
 names(gff) = gsub(pattern = ".gff",replacement = "",basename(gff_files))
 
-kaks_files = list.files(path = args[["kaks"]],full.names = TRUE)
+kaks_files = list.files(path = args[["kaks"]],pattern = "*.kaks$",full.names = TRUE)
 kaks_data = lapply(kaks_files,function(x){
   res = read.delim(file = x,header = FALSE,sep = "\t",comment.char = "#")
   colnames(res) = c("block","Gene1","Gene2","pvalue","ka","ks")
   res = res[res[["ka"]] > 0 & res[["ks"]] > 0,,drop = FALSE]
   return(res)
 })
-names(kaks_data) = gsub(pattern = name_regex,replacement = "",x = basename(kaks_files))
 
+names(kaks_data) = gsub(pattern = name_regex,
+                        replacement = "",
+                        x = gsub(pattern = ".kaks$",replacement = "",basename(kaks_files)))
 ks_species = sapply(kaks_data,function(x){
   x[["ks"]]
 })
@@ -108,13 +110,13 @@ ks_species_data_normalized = ks_species_data_normalized %>%
 #             LineageII = "Eutrema_salsugineum",LineageII = "Thlaspi_arvense",LineageII = "Schrenkiella_parvula",LineageII = "Brassica_juncea",LineageII = "Brassica_rapa",LineageII = "Brassica_napus",LineageII = "Brassica_oleracea",
 #             LineageI = "Cardamine_hirsuta",LineageI = "Lepidium_sativum",LineageI = "Arabidopsis_thaliana",LineageI = "Arabidopsis_lyrata",LineageI = "Arabidopsis_halleri",LineageI = "Boechera_stricta",LineageI = "Capsella_rubella",LineageI = "Camelina_sativa")
 
-species_colors = rev(c("grey60","grey60","grey60",
-                   "azure",
-                   "chartreuse2",
-                   "pink",
-                   "white",
-                   "cyan","cyan","cyan","cyan","cyan","cyan","cyan",
-                   "red","red","red","red","red","red","red","red"))
+# species_colors = rev(c("grey60","grey60","grey60",
+#                    "azure",
+#                    "chartreuse2",
+#                    "pink",
+#                    "white",
+#                    "cyan","cyan","cyan","cyan","cyan","cyan","cyan",
+#                    "red","red","red","red","red","red","red","red"))
 if("order" %in% names(args)){
   reorder = strsplit(args[["order"]],split = ",")[[1]]
 }else{
@@ -122,13 +124,11 @@ if("order" %in% names(args)){
 }
 
 if("color" %in% names(args)){
-  species_groups = rev(as.numeric(strsplit(args[["color"]],split = ",")[[1]]))
-  species_colors = rainbow(n = length(unique(species_groups)))[species_groups]
+  species_colors = rev(strsplit(args[["color"]],split = ",")[[1]])
 }else{
   species_colors = rainbow(n = length(unique(ks_species_data_normalized$Species)))
 }
 
-  
 # 
 # group_colors = c(Outgroup = "grey",
 #                  Basal = "purple",
@@ -139,7 +139,7 @@ if("color" %in% names(args)){
 # names(species_colors) = unname(reorder)
 
 cat("#####   Outputting graph   #####\n")
-plot = ks_species_data_normalized %>%
+plot = suppressWarnings(ks_species_data_normalized %>%
   mutate(Species = fct_rev(fct_relevel(Species, reorder))) %>%
   ggplot(aes(y = Species, x = Ks_normalized, height = Density_normalized, fill = Species)) +
   geom_density_ridges(stat = "identity", scale = 1.5, alpha = 0.6) +
@@ -151,13 +151,14 @@ plot = ks_species_data_normalized %>%
     axis.title.x = element_text(hjust = 0.5,size = 25),
     axis.title.y = element_text(hjust = 0.5,size = 25),
     axis.text.x = element_text(size = 20),
-    axis.text.y = element_text(size = 20)
+    axis.text.y = element_text(size = 20,colour = species_colors,hjust = 0)
   ) +
   scale_x_continuous(limits = c(0, ks_cutoff)) +
   scale_fill_manual(values = species_colors) +
+  scale_y_discrete(labels = gsub(pattern = "_",replacement = " ",rev(reorder))) +
   xlab("Ks") +
   ylab("Species")
-
+)
 png(filename = paste0("Ks_ridgeplot_",format(Sys.time(),'%Y%m%d_%H%M%S'),".png"),width = 1080,height = 1080,units = "px")
 print(plot)
 while(!is.null(dev.list())) dev.off()
