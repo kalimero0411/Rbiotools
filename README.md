@@ -1,7 +1,7 @@
 # Rbiotools
 R scripts for bioinformatics
 
-| Code number     | Genetic code      |
+| Script     | Function      |
 | ------------- | ------------- |
 | Rupdate          |  Bash script to update/install all R packages        |
 | RNAseq          |  Analyze RNA sequencing data        |
