@@ -6,6 +6,7 @@ packages = c("DESeq2","ggplot2","ggrepel","gplots","RColorBrewer","BiocParallel"
              "parallel","doParallel","RCurl","devtools","GenomicFeatures","apeglm","R.utils",
              "VennDiagram","wordcloud","tm","topGO","Rgraphviz","NOISeq","gprofiler2","jsonlite","Rsubread")
 
+loadpackages = function(packages){
 invisible(
   suppressMessages(
     if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
@@ -38,6 +39,7 @@ if(!require("bcbioRNASeq",character.only = TRUE,quietly = TRUE)){
   )
   library("bcbioRNASeq")
 }
+}
 
 options(stringsAsFactors = FALSE)
 
@@ -45,61 +47,71 @@ init_params = list()
 
 ###### command line ######
 if(!interactive()){
+  invisible(suppressMessages(if(!require("R.utils",character.only = TRUE,quietly = TRUE)){
+    install.packages("R.utils")
+  }))
   options(rgl.useNULL = TRUE)
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   must_args = c("wd","name","process")
   if(!all(must_args %in% names(args))){
-    help = matrix(data = c("--rdata    ","RData file path",
-                           "--wd","Working directory path",
-                           "--name","Experiment name",
-                           "--input","Aligner output files path (RSEM, STAR or kallisto)",
-                           "--mapper","One of RSEM, Kallisto, Salmon, HTseq-count, FeatureCounts, Counts",
-                           "--design","DESeq2 design formula (e.g. ~Genotype+treatment)",
-                           "--exp","Experimental design file",
-                           "--controls","Variables to assign as controls (e.g. Species:At,Salt:0,Heat:None)",
-                           "--reduced","DESeq2 reduced design formula (Default = ~1)",
-                           "--process","Process: ",
-                           "","1 = Run settings",
-                           "","2 = DESeq2",
-                           "","3 = LRT",
-                           "","4 = Transformation (not parallelized)",
-                           "","5 = Heatmaps",
-                           "","6 = Dispersion estimates, PCAs and PCoAs",
-                           "","7 = Optimize K-means",
-                           "","8 = K-means clustering",
-                           "","9 = Hierarchial clustering",
-                           "","10 = MA-plot",
-                           "","11 = DEG heatmap",
-                           "","12 = goseq GO analysis",
-                           "","13 = Venn diagram",
-                           "","14 = topGO analysis",
-                           "","15 = Word cloud",
-                           "","16 = Variable heatmap and report",
-                           "","(e.g. 2,5,6,7,8,9,10,11,12)",
-                           "--remove_isoforms","Remove isoform suffix from gene IDs",
-                           "--isoforms","Use isoforms instead of genes",
-                           "--vst","Use VST instead of rlog",
-                           "--lengths","File with extention .gtf, .rds, .RData, or a tab delimited file",
-                           "--tx2gene","A transcript to gene mapping file (Kallisto/Salmon)",
-                           "--alpha","Cut off for p values",
-                           "--FDR","Cut off for FDR",
-                           "--k","Number of clusters for K-means clustering",
-                           "--seed","Seed value for random number generator",
-                           "--heatmap_no_clust","Cluster rows in heatmaps",
-                           "--GO_file","Path to GO annotation file",
-                           "--noiseq","Perform NOISeq correction (ARSyNseq: counts | proportion | FDR)",
-                           "--venn_go","0 = None, 1 = Up-regulated, 2 = Down-regulated, 3 = Both (Default = 0; Multiple input possible)",
-                           "--3dpca","1 = Single factors, 2 = Multiple factors, 3 = DEGs (Default = None; All = 123)",
-                           "--ensembl","Select Ensembl species ID (enter 0 for options)",
-                           "--t","Number of compute threads",
-                           "--arg","Additional R arguments (multiple arguments in separate flags)")
-                  ,ncol = 2,byrow = TRUE)
-    prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
+    print_help <- function() {
+      title = "RNA-seq analysis"
+      opts = rbind(c("--rdata    ","RData file path"),
+                     c("--wd","Working directory path"),
+                     c("--name","Experiment name"),
+                     c("--input","Aligner output files path (RSEM, STAR or kallisto)"),
+                     c("--mapper","One of RSEM, Kallisto, Salmon, HTseq-count, FeatureCounts, Counts"),
+                     c("--design","DESeq2 design formula (e.g. ~Genotype+treatment)"),
+                     c("--exp","Experimental design file"),
+                     c("--controls","Variables to assign as controls (e.g. Species:At,Salt:0,Heat:None)"),
+                     c("--reduced","DESeq2 reduced design formula (Default = ~1)"),
+                     c("--process","Process: "),
+                     c("","1 = Run settings"),
+                     c("","2 = DESeq2"),
+                     c("","3 = LRT"),
+                     c("","4 = Transformation (not parallelized)"),
+                     c("","5 = Heatmaps"),
+                     c("","6 = Dispersion estimates, PCAs and PCoAs"),
+                     c("","7 = Optimize K-means"),
+                     c("","8 = K-means clustering"),
+                     c("","9 = Hierarchial clustering"),
+                     c("","10 = MA-plot"),
+                     c("","11 = DEG heatmap"),
+                     c("","12 = goseq GO analysis"),
+                     c("","13 = Venn diagram"),
+                     c("","14 = topGO analysis"),
+                     c("","15 = Word cloud"),
+                     c("","16 = Variable heatmap and report"),
+                     c("","(e.g. 2,5,6,7,8,9,10,11,12)"),
+                     c("--remove_isoforms","Remove isoform suffix from gene IDs"),
+                     c("--isoforms","Use isoforms instead of genes"),
+                     c("--vst","Use VST instead of rlog"),
+                     c("--lengths","File with extention .gtf, .rds, .RData, or a tab delimited file"),
+                     c("--tx2gene","A transcript to gene mapping file (Kallisto/Salmon)"),
+                     c("--alpha","Cut off for p values"),
+                     c("--FDR","Cut off for FDR"),
+                     c("--k","Number of clusters for K-means clustering"),
+                     c("--seed","Seed value for random number generator"),
+                     c("--heatmap_no_clust","Cluster rows in heatmaps"),
+                     c("--GO_file","Path to GO annotation file"),
+                     c("--noiseq","Perform NOISeq correction (ARSyNseq: counts | proportion | FDR)"),
+                     c("--venn_go","0 = None, 1 = Up-regulated, 2 = Down-regulated, 3 = Both (Default = 0; Multiple input possible)"),
+                     c("--3dpca","1 = Single factors, 2 = Multiple factors, 3 = DEGs (Default = None; All = 123)"),
+                     c("--ensembl","Select Ensembl species ID (enter 0 for options)"),
+                     c("--t","Number of compute threads"),
+                     c("--arg","Additional R arguments (multiple arguments in separate flags)"))
+      lines = c("Usage: Rscript RNAseq.R [options]","",title,"","Options:",apply(opts, 1, function(r) sprintf("  %-*s  %s", max(nchar(opts[,1])), r[1], r[2]))    )
+      cat(paste0(lines, collapse = "\n"), "\n")
+    }
+    print_help()
     stop(paste0("Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
     if(sum(as.numeric(unlist(strsplit(args[["process"]],split = ","))) %in% c(2,3,4)) > 1){
       stop(paste0("Select only one DESeq2 analysis (2,3 or 4)"),call. = TRUE)
     }
   }
+  
+  loadpackages(packages = packages)
+  
   if("rdata" %in% names(args)){
     cat("Loading RData file: ",args[["rdata"]],"\n",sep = "")
     load(args[["rdata"]])
@@ -264,7 +276,8 @@ if(!interactive()){
   }else{
     
     ### Interactive
-
+    loadpackages(packages = packages)
+    
 init_params[["threads"]] = detectCores()
 
 ##### Register threads #####

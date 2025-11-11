@@ -3,23 +3,26 @@
 packages=c("BiocParallel","parallel","ShortRead","RSQLite","QuasR","BSgenome","rstudioapi","ggupset",
            "Rsamtools","rtracklayer","GenomicFeatures","txdbmaker","Hmisc","Gviz","XML","mosaics",
            "ChIPseeker","clusterProfiler","ReactomePA","dada2","RMariaDB","DOSE","tools","R.utils")
-invisible(
-  suppressMessages(
-    if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
-      cat("Installing BiocManager\n",sep = "")
-      install.packages("BiocManager")
-    }))
 
-cat("#####   Loading packages   #####\n")
-invisible(
-  suppressMessages(
-    lapply(packages,function(x){
-      if(!require(x,character.only = TRUE,quietly = TRUE)){
-        cat("Installing package: ",x,"\n",sep = "")
-        BiocManager::install(x,update = FALSE,ask = FALSE)
-        library(x,character.only = TRUE,quietly = TRUE)
-      }
-    })))
+loadpackages = function(packages){
+  invisible(
+    suppressMessages(
+      if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
+        cat("Installing BiocManager\n",sep = "")
+        install.packages("BiocManager")
+      }))
+  
+  cat("#####   Loading packages   #####\n")
+  invisible(
+    suppressMessages(
+      lapply(packages,function(x){
+        if(!require(x,character.only = TRUE,quietly = TRUE)){
+          cat("Installing package: ",x,"\n",sep = "")
+          BiocManager::install(x,update = FALSE,ask = FALSE)
+          library(x,character.only = TRUE,quietly = TRUE)
+        }
+      })))
+}
 
 options(stringsAsFactors = FALSE)
 
@@ -27,33 +30,42 @@ init_params = list()
 
 ###### Cluster commands ######
 if(!interactive()){
+  invisible(suppressMessages(if(!require("R.utils",character.only = TRUE,quietly = TRUE)){
+    install.packages("R.utils")
+  }))
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   must_args = c("wd","name","anno")
   if(!all(must_args %in% names(args))){
-    help = matrix(data = c("Choose to analyze MACS xls files or raw ChIP FASTQ files",
-                           "Experimental design file must be Sample name [tab] xls input [tab] xls ChIP (for MACS data)",
-                           "Experimental design file must be Sample name [tab] FASTQ input [tab] FASTQ ChIP (for FASTQ single-end data)",
-                           "Experimental design file must be Sample name [tab] FASTQ mate1 input [tab] FASTQ mate2 input [tab] FASTQ mate1 ChIP [tab] FASTQ mate2 ChIP (for FASTQ paired-end data)",
-                           "",
-                           "--exp    ","Experimental design file",
-                           "--wd    ","Working directory path",
-                           "--name    ","Experiment name",
-                           "--anno    ","Annotation file path (GFF or GTF file)",
-                           "--analyze    ","Load an RData file and proceed to analysis",
-                           "--fastq    ","Performs trimming, alignment and binning of FASTQ data (instead of MACS; default = FALSE)",
-                           "--genome    ","Genome FASTA file (required for --fastq)",
-                           "--fraglen    ","Fragment length (for --fastq; Default = 200)",
-                           "--bin    ","Bin size (for --fastq; Default = 200)",
-                           "--org    ","Organism number (if exists)",
-                           "--key    ","Gene key for organism",
-                           "--t    ","Number of compute threads (Default = detected cores)",
-                           "--list_orgs    ","List org.db and exit",
-                           "--arg    ","Additional R arguments (multiple arguments in separate flags)")
-                  ,ncol = 2,byrow = TRUE)
-    prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
+    print_help <- function() {
+      title = "ChIP analysis"
+      opts = rbind(c("Choose to analyze MACS xls files or raw ChIP FASTQ files"),
+                   c("Experimental design file must be Sample name [tab] xls input [tab] xls ChIP (for MACS data)"),
+                   c("Experimental design file must be Sample name [tab] FASTQ input [tab] FASTQ ChIP (for FASTQ single-end data)"),
+                   c("Experimental design file must be Sample name [tab] FASTQ mate1 input [tab] FASTQ mate2 input [tab] FASTQ mate1 ChIP [tab] FASTQ mate2 ChIP (for FASTQ paired-end data)"),
+                   c(""),
+                   c("--exp    ","Experimental design file"),
+                   c("--wd    ","Working directory path"),
+                   c("--name    ","Experiment name"),
+                   c("--anno    ","Annotation file path (GFF or GTF file)"),
+                   c("--analyze    ","Load an RData file and proceed to analysis"),
+                   c("--fastq    ","Performs trimming, alignment and binning of FASTQ data (instead of MACS; default = FALSE)"),
+                   c("--genome    ","Genome FASTA file (required for --fastq)"),
+                   c("--fraglen    ","Fragment length (for --fastq; Default = 200)"),
+                   c("--bin    ","Bin size (for --fastq; Default = 200)"),
+                   c("--org    ","Organism number (if exists)"),
+                   c("--key    ","Gene key for organism"),
+                   c("--t    ","Number of compute threads (Default = detected cores)"),
+                   c("--list_orgs    ","List org.db and exit"),
+                   c("--arg    ","Additional R arguments (multiple arguments in separate flags)"))
+      lines = c("Usage: Rscript ChIPSeq.R [options]","",title,"","Options:",apply(opts, 1, function(r) sprintf("  %-*s  %s", max(nchar(opts[,1])), r[1], r[2]))    )
+      cat(paste0(lines, collapse = "\n"), "\n")
+    }
+    print_help()
     stop(paste0("Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
   }
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
+  
+  loadpackages(packages = packages)
   if("list_orgs" %in% names(args)){
     org_list = suppressMessages(BiocManager::available(pattern = "org[.](.*)[.]db",include_installed = TRUE))
     cat(paste0(seq_along(org_list),": ",org_list,"\n"))
@@ -136,6 +148,7 @@ if(!interactive()){
   }
   
 }else{
+  loadpackages(packages = packages)
   
 init_params[["threads"]] = detectCores()
   

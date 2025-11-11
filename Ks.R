@@ -1,5 +1,7 @@
+##### Ks ridge plot from MCScanX output #####
 packages = c("ggplot2", "ggridges","tidyverse")
 
+loadpackages = function(packages){
 invisible(
   suppressMessages(
     if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
@@ -17,21 +19,30 @@ invisible(
         library(x,character.only = TRUE,quietly = TRUE)
       }
     })))
+}
 
+invisible(suppressMessages(if(!require("R.utils",character.only = TRUE,quietly = TRUE)){
+  install.packages("R.utils")
+}))
 args = R.utils::commandArgs(trailingOnly = TRUE, asValues = TRUE)
 must_args = c("gff", "kaks")
 if(!all(must_args %in% names(args))){
-  help = matrix(data = c("Ks ridge plot from MCScanX output","",
-                         "--gff    ", "Path to folder with gff files",
-                         "--kaks    ", "Path to folder with ka/ks collinearity files",
-                         "--order    ", "Order of species by kaks file names (without extention, comma separated)",
-                         "--color    ", "Species group number (for color designation, e.g. '1,1,2,2,2,3,3')",
-                         "--ks_cutoff    ", "Cutoff for Ks plot (Default = 2)",
-                         "--regex    ","Regex to rename files to samples")
-                , ncol = 2, byrow = TRUE)
-  prmatrix(help, quote = FALSE, rowlab = rep("", nrow(help)), collab = rep("", 2))
-  stop(paste0("Missing command line input --> ", paste(must_args[!must_args %in% names(args)], collapse = " | ")), call. = TRUE)
+  print_help <- function() {
+    title = "Ks ridge plot from MCScanX output"
+    opts = rbind(c("--gff    ", "Path to folder with gff files"),
+               c("--kaks    ", "Path to folder with ka/ks collinearity files"),
+               c("--order    ", "Order of species by kaks file names (without extention, comma separated)"),
+               c("--color    ", "Species group number (for color designation, e.g. '1,1,2,2,2,3,3')"),
+               c("--ks_cutoff    ", "Cutoff for Ks plot (Default = 2)"),
+               c("--regex    ","Regex to rename files to samples"))
+    lines = c("Usage: Rscript Ks.R [options]","",title,"","Options:",apply(opts, 1, function(r) sprintf("  %-*s  %s", max(nchar(opts[,1])), r[1], r[2]))    )
+    cat(paste0(lines, collapse = "\n"), "\n")
+  }
+  print_help()
+  stop(paste0("\nMissing command line input --> ", paste(must_args[!must_args %in% names(args)], collapse = " | ")), call. = TRUE)
 }
+
+loadpackages(packages = packages)
 
 if("ks_cutoff" %in% names(args)){
   ks_cutoff = args[["ks_cutoff"]]

@@ -1,36 +1,46 @@
 packages = c("dupRadar","R.utils","parallel")
 
-invisible(
-  suppressMessages(
-    if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
-      cat("Installing BiocManager\n",sep = "")
-      install.packages("BiocManager")
-    }))
+loadpackages = function(packages){
+  invisible(
+    suppressMessages(
+      if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
+        cat("Installing BiocManager\n",sep = "")
+        install.packages("BiocManager")
+      }))
+  
+  cat("#####   Loading packages   #####\n")
+  invisible(
+    suppressMessages(
+      lapply(packages,function(x){
+        if(!require(x,character.only = TRUE,quietly = TRUE)){
+          cat("Installing package: ",x,"\n",sep = "")
+          BiocManager::install(x,update = FALSE,ask = FALSE)
+          library(x,character.only = TRUE,quietly = TRUE)
+        }
+      })))
+}
 
-cat("#####   Loading packages   #####\n")
-invisible(
-  suppressMessages(
-    lapply(packages,function(x){
-      if(!require(x,character.only = TRUE,quietly = TRUE)){
-        cat("Installing package: ",x,"\n",sep = "")
-        BiocManager::install(x,update = FALSE,ask = FALSE)
-        library(x,character.only = TRUE,quietly = TRUE)
-      }
-    })))
-
+invisible(suppressMessages(if(!require("R.utils",character.only = TRUE,quietly = TRUE)){
+  install.packages("R.utils")
+}))
 threads = detectCores()
 args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
 must_args = c("bam","gtf")
 if(!all(must_args %in% names(args))){
-  help = matrix(data = c("--bam    ","Path to duplicate marked / unmarked BAM file",
-                         "--gtf    ","GTF file used in the alignment",
-                         "--stranded    ","Strandedness of the FASTQ file (0 = unstranded [default]; 1 = stranded; 2 = reverse)",
-                         "--verbose    ","Verbose")
-                ,ncol = 2,byrow = TRUE)
-  prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
-stop(paste0("Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
+  print_help <- function() {
+    title = "Evaluate duplicates in sequencing alignments"
+    opts = rbind(c("--bam    ","Path to duplicate marked / unmarked BAM file"),
+                 c("--gtf    ","GTF file used in the alignment"),
+                 c("--stranded    ","Strandedness of the FASTQ file (0 = unstranded [default]; 1 = stranded; 2 = reverse)"),
+                 c("--verbose    ","Verbose"))
+    lines = c("Usage: Rscript dups.R [options]","",title,"","Options:",apply(opts, 1, function(r) sprintf("  %-*s  %s", max(nchar(opts[,1])), r[1], r[2]))    )
+    cat(paste0(lines, collapse = "\n"), "\n")
+  }
+  print_help()
+  stop(paste0("Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
 }
 
+loadpackages(packages = packages)
 if("stranded" %in% names(args)){
   stranded = as.numeric(args[["stranded"]])
 }else{

@@ -1,34 +1,35 @@
-##### SETUP #####
+##### WGCNA #####
 packages = c("purrr", "bindr", "Biobase", "BiocGenerics", "checkmate", "digest","dplyr", "dynamicTreeCut", "flashClust", 
              "ggplot2", "gplots", "ggpubr", "IRanges", "RColorBrewer", "robust", "tidyr", "WGCNA","parallel","R.utils",
-             "MatrixGenerics","pheatmap","rstudioapi")
+             "MatrixGenerics","pheatmap","rstudioapi","BiocParallel")
 
-if(interactive()){
-  packages = c(packages,"BiocParallel")
+loadpackages = function(packages){
+  invisible(
+    suppressMessages(
+      if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
+        cat("Installing BiocManager\n",sep = "")
+        install.packages("BiocManager")
+      }))
+  
+  cat("#####   Loading packages   #####\n")
+  invisible(
+    suppressMessages(
+      lapply(packages,function(x){
+        if(!require(x,character.only = TRUE,quietly = TRUE)){
+          cat("Installing package: ",x,"\n",sep = "")
+          BiocManager::install(x,update = FALSE,ask = FALSE)
+          library(x,character.only = TRUE,quietly = TRUE)
+        }
+      })))
 }
-
-invisible(
-  suppressMessages(
-    if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
-      cat("Installing BiocManager\n",sep = "")
-      install.packages("BiocManager")
-    }))
-
-cat("#####   Loading packages   #####\n")
-invisible(
-  suppressMessages(
-    lapply(packages,function(x){
-      if(!require(x,character.only = TRUE,quietly = TRUE)){
-        cat("Installing package: ",x,"\n",sep = "")
-        BiocManager::install(x,update = FALSE,ask = FALSE)
-        library(x,character.only = TRUE,quietly = TRUE)
-      }
-    })))
 
 
 options(stringsAsFactors = FALSE)
 init_params = list()
 if(!interactive()){
+  invisible(suppressMessages(if(!require("R.utils",character.only = TRUE,quietly = TRUE)){
+    install.packages("R.utils")
+  }))
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   must_args = c("rdata","wd","name","threads")
   if(!all(must_args %in% names(args))){
@@ -45,10 +46,28 @@ if(!interactive()){
                            "--threads","Number of CPU threads",
                            "--arg","Additional R arguments (multiple arguments in separate flags)")
                   ,ncol = 2,byrow = TRUE)
-    prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
+    print_help <- function() {
+      title = "Perform WGCNA"
+      opts = rbind(c("--rdata    ","RData file path"),
+                   c("--wd","Working directory path"),
+                   c("--name","Experiment name"),
+                   c("--factors","Experimantal factors to test(Seperated by comma; Default = All factors)"),
+                   c("--power","Scale Free Topology Model Fit"),
+                   c("--TOM","Specify sft value and create Topology overlap matrix (TOM)"),
+                   c("--blockwise","Perform blockwise calculation for TOM"),
+                   c("--minmod","Minimum module size"),
+                   c("--maxblock","Maximum block size (only used in blockwise)"),
+                   c("--min_exp","Minimum expression for all samples of a gene"),
+                   c("--threads","Number of CPU threads"),
+                   c("--arg","Additional R arguments (multiple arguments in separate flags)"))
+      lines = c("Usage: Rscript WGCNA.R [options]","",title,"","Options:",apply(opts, 1, function(r) sprintf("  %-*s  %s", max(nchar(opts[,1])), r[1], r[2]))    )
+      cat(paste0(lines, collapse = "\n"), "\n")
+    }
+    print_help()
     stop(paste(must_args[!must_args %in% names(args)],collapse = " | "), call. = TRUE)
   }
   
+  loadpackages(packages = packages)
   # saveRDS(data,file = "data.rds")
   cat("Loading RData file: ",args[["rdata"]],"\n",sep = "")
   if("rdata" %in% names(args)){
@@ -107,6 +126,7 @@ if(!interactive()){
   # }
   
 }else{
+  loadpackages(packages = packages)
   init_params[["threads"]] = detectCores()
   init_params[["wd"]] = rstudioapi::selectDirectory(caption = "Choose working directory:",path = getwd())
   load(rstudioapi::selectFile(caption = "Select WGCNA_data.RData file"))

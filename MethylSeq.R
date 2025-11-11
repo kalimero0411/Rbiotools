@@ -3,48 +3,58 @@
 packages=c("methylKit","Rsamtools","genomation","goseq","BiocParallel","parallel","tools","factoextra",
            "R.utils","ggplot2","rstudioapi","matrixStats")
 
-invisible(
-  suppressMessages(
-    if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
-      cat("Installing BiocManager\n",sep = "")
-      install.packages("BiocManager")
-    }))
-
-cat("#####   Loading packages   #####\n")
-invisible(
-  suppressMessages(
-    lapply(packages,function(x){
-      if(!require(x,character.only = TRUE,quietly = TRUE)){
-        cat("Installing package: ",x,"\n",sep = "")
-        BiocManager::install(x,update = FALSE,ask = FALSE)
-        library(x,character.only = TRUE,quietly = TRUE)
-      }
-    })))
+loadpackages = function(packages){
+  invisible(
+    suppressMessages(
+      if(!require("BiocManager",character.only = TRUE,quietly = TRUE)){
+        cat("Installing BiocManager\n",sep = "")
+        install.packages("BiocManager")
+      }))
+  
+  cat("#####   Loading packages   #####\n")
+  invisible(
+    suppressMessages(
+      lapply(packages,function(x){
+        if(!require(x,character.only = TRUE,quietly = TRUE)){
+          cat("Installing package: ",x,"\n",sep = "")
+          BiocManager::install(x,update = FALSE,ask = FALSE)
+          library(x,character.only = TRUE,quietly = TRUE)
+        }
+      })))
+}
 
 options(stringsAsFactors = FALSE)
 init_params = list()
 
 ###### Cluster commands ######
 if(!interactive()){
+  invisible(suppressMessages(if(!require("R.utils",character.only = TRUE,quietly = TRUE)){
+    install.packages("R.utils")
+  }))
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   must_args = c("wd","name")
   if(!all(must_args %in% names(args))){
-    help = matrix(data = c("--wd","Working directory",
-                    "--name","Experiment name (all data will output to a directory by that name in the working directory)",
-                    "--bismark","Bismark output BAM files",
-                    "--analyze","Skip reading input and Analyze data from RData file",
-                    "--read","Only read data and output RData file (don't analyze)",
-                    "--anno","Annotation file (12 column bed format; convert GFF/GTF with agat_convert_sp_gff2bed.pl)",
-                    "--exp","Experimental design file",
-                    "--control","Control variable for each factor (comma separated; in the same order as in --exp; Default = first variable in each factor)",
-                    "--context","Methylation context: CpG, CHG and CHH (Default = All)",
-                    "--t","Number of compute threads",
-                    "--arg","Additional R arguments (multiple arguments in separate flags)")
-                  ,ncol = 2,byrow = TRUE)
-    prmatrix(help,quote = FALSE,rowlab = rep("",nrow(help)),collab = rep("",2))
+    print_help <- function() {
+      title = "Evaluate duplicates in sequencing alignments"
+      opts = rbind(c("--wd","Working directory"),
+                   c("--name","Experiment name (all data will output to a directory by that name in the working directory)"),
+                   c("--bismark","Bismark output BAM files"),
+                   c("--analyze","Skip reading input and Analyze data from RData file"),
+                   c("--read","Only read data and output RData file (don't analyze)"),
+                   c("--anno","Annotation file (12 column bed format; convert GFF/GTF with agat_convert_sp_gff2bed.pl)"),
+                   c("--exp","Experimental design file"),
+                   c("--control","Control variable for each factor (comma separated; in the same order as in --exp; Default = first variable in each factor)"),
+                   c("--context","Methylation context: CpG, CHG and CHH (Default = All)"),
+                   c("--t","Number of compute threads"),
+                   c("--arg","Additional R arguments (multiple arguments in separate flags)"))
+      lines = c("Usage: Rscript dups.R [options]","",title,"","Options:",apply(opts, 1, function(r) sprintf("  %-*s  %s", max(nchar(opts[,1])), r[1], r[2]))    )
+      cat(paste0(lines, collapse = "\n"), "\n")
+    }
+    print_help()
     stop(paste0("Missing command line input --> ",paste(must_args[!must_args %in% names(args)],collapse = " | ")), call. = TRUE)
   }
   
+  loadpackages(packages = packages)
   args = R.utils::commandArgs(trailingOnly = TRUE,asValues = TRUE)
   init_params[["wd"]] = normalizePath(args[["wd"]])
   init_params[["name"]] = args[["name"]]
@@ -97,6 +107,7 @@ if(!interactive()){
   
 }else{
   
+  loadpackages(packages = packages)
   init_params[["threads"]] = detectCores()
   
   ###### Set working directory ######
