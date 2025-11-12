@@ -391,7 +391,9 @@ if(GO_select == "From Ensembl"){
 }
   }
 
-print(data.frame(Value = sapply(init_params,function(x) paste(x,collapse = ", "))))
+starting_vals = data.frame(Parameter = names(init_params),Value = sapply(init_params,function(x) paste(x,collapse = ", ")))
+lines = c("## Input parameters ##","",apply(starting_vals, 1, function(r) sprintf("  %-*s  %s", max(nchar(starting_vals[,1])), r[1], r[2]))    )
+cat(paste0(lines, collapse = "\n"), "\n")
 
 if("Run settings" %in% init_params[["section"]]){
   
