@@ -391,7 +391,13 @@ if(GO_select == "From Ensembl"){
 }
   }
 
-starting_vals = data.frame(Parameter = names(init_params),Value = sapply(init_params,function(x) paste(x,collapse = ", ")))
+starting_vals = data.frame(Parameter = names(init_params),Value = sapply(names(init_params),function(x){
+  if(class(init_params[[x]]) == "formula"){
+    paste(init_params[[x]],collapse = "")
+  }else{
+    paste(init_params[[x]],collapse = ", ")
+  }
+  }))
 lines = c("## Input parameters ##","",apply(starting_vals, 1, function(r) sprintf("  %-*s  %s", max(nchar(starting_vals[,1])), r[1], r[2]))    )
 cat(paste0(lines, collapse = "\n"), "\n")
 
