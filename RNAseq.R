@@ -974,6 +974,9 @@ environment(pheatmap_seed) = environment(pheatmap)
     data_set = DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,directory = init_params[["input_path"]],design = init_params[["design"]])
     count_table = assay(data_set)
     count_table = count_table[!grepl(pattern = "^N_unmapped$|^N_multimapping$|^N_noFeature$|^N_ambiguous$",rownames(count_table)),]
+    if(exists("gene_length")){
+      gene_length = gene_length[rownames(count_table),,drop = FALSE]
+    }
   }
     
     if(init_params[["Mapper"]] %in% "FeatureCounts"){
